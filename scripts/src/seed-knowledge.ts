@@ -1,0 +1,79 @@
+import { db } from "@workspace/db";
+import { knowledgeBaseTable } from "@workspace/db/schema";
+
+const entries = [
+  { question: "What is Artificial Intelligence?", answer: "AI is the simulation of human intelligence in machines that are programmed to think, learn, and problem-solve like humans. It encompasses tasks such as speech recognition, decision-making, and language understanding.", category: "AI" },
+  { question: "What is Machine Learning?", answer: "Machine learning is a subset of AI that enables systems to automatically learn and improve from experience without being explicitly programmed. It focuses on developing algorithms that can access data and use it to learn for themselves.", category: "AI" },
+  { question: "What is Python?", answer: "Python is a popular high-level, interpreted programming language used in web development, data science, artificial intelligence, and automation. It is known for its simple and readable syntax.", category: "Programming" },
+  { question: "Define compiler", answer: "A compiler is a program that translates source code written in a high-level programming language (like C++ or Java) into machine code (binary instructions) that the CPU can execute directly.", category: "Programming" },
+  { question: "What is Natural Language Processing?", answer: "NLP (Natural Language Processing) is a branch of AI that enables computers to understand, interpret, and generate human language. It is used in chatbots, translation services, and sentiment analysis.", category: "AI" },
+  { question: "What is Deep Learning?", answer: "Deep learning is a subset of machine learning based on artificial neural networks with multiple layers (deep neural networks). It is used in image recognition, speech recognition, and natural language processing.", category: "AI" },
+  { question: "What is an Algorithm?", answer: "An algorithm is a step-by-step set of instructions or rules designed to solve a problem or perform a computation. Algorithms are the foundation of all computer programs.", category: "Computer Science" },
+  { question: "What is Data Science?", answer: "Data science is an interdisciplinary field that uses scientific methods, algorithms, and systems to extract knowledge and insights from structured and unstructured data using statistics, programming, and domain expertise.", category: "Data" },
+  { question: "What is a Database?", answer: "A database is an organized collection of structured data stored electronically in a computer system. Databases allow efficient data storage, retrieval, modification, and management using a database management system (DBMS).", category: "Database" },
+  { question: "What is API?", answer: "An API (Application Programming Interface) is a set of rules and protocols that allows different software applications to communicate with each other. APIs define the methods and data formats for requesting and exchanging information.", category: "Programming" },
+  { question: "What is Object-Oriented Programming?", answer: "Object-Oriented Programming (OOP) is a programming paradigm that organizes software design around objects rather than functions. Key principles include encapsulation, inheritance, polymorphism, and abstraction.", category: "Programming" },
+  { question: "What is a neural network?", answer: "A neural network is a computational model inspired by the structure and function of the human brain. It consists of interconnected layers of nodes (neurons) that process data and learn patterns to perform tasks like classification or prediction.", category: "AI" },
+  { question: "What is SQL?", answer: "SQL (Structured Query Language) is a standard language used to manage and manipulate relational databases. It allows users to create, read, update, and delete data using commands like SELECT, INSERT, UPDATE, and DELETE.", category: "Database" },
+  { question: "What is cloud computing?", answer: "Cloud computing is the delivery of computing services including servers, storage, databases, networking, software, and analytics over the internet (the cloud) to offer faster innovation, flexible resources, and economies of scale.", category: "Technology" },
+  { question: "What is an operating system?", answer: "An operating system (OS) is system software that manages computer hardware and software resources and provides common services for computer programs. Examples include Windows, macOS, and Linux.", category: "Computer Science" },
+  { question: "What is version control?", answer: "Version control is a system that records changes to files over time so you can recall specific versions later. Git is the most widely used version control system, allowing multiple developers to collaborate on the same codebase.", category: "Programming" },
+  { question: "What is Git?", answer: "Git is a distributed version control system used to track changes in source code during software development. It allows multiple developers to work together on the same project without overwriting each other's changes.", category: "Programming" },
+  { question: "What is cybersecurity?", answer: "Cybersecurity is the practice of protecting systems, networks, and programs from digital attacks, unauthorized access, damage, or theft. It includes network security, application security, information security, and operational security.", category: "Technology" },
+  { question: "What is the Internet of Things?", answer: "The Internet of Things (IoT) refers to the network of physical devices, vehicles, appliances, and other objects embedded with sensors, software, and connectivity to exchange data over the internet.", category: "Technology" },
+  { question: "What is Big Data?", answer: "Big Data refers to extremely large datasets that cannot be processed using traditional data processing tools. It is characterized by the 3 Vs: Volume (large amounts), Velocity (fast speed), and Variety (different types) of data.", category: "Data" },
+  { question: "What is blockchain?", answer: "Blockchain is a decentralized, distributed ledger technology that records transactions across many computers so the records cannot be altered retroactively. It is the underlying technology for cryptocurrencies like Bitcoin.", category: "Technology" },
+  { question: "What is a data structure?", answer: "A data structure is a way of organizing and storing data in a computer so that it can be accessed and modified efficiently. Common data structures include arrays, linked lists, stacks, queues, trees, and graphs.", category: "Computer Science" },
+  { question: "What is recursion?", answer: "Recursion is a programming technique where a function calls itself to solve a smaller instance of the same problem. It requires a base case to stop the recursion and a recursive case that reduces the problem.", category: "Programming" },
+  { question: "What is an array?", answer: "An array is a data structure that stores a fixed-size sequential collection of elements of the same type. Each element is identified by an index, and arrays allow efficient random access to elements.", category: "Computer Science" },
+  { question: "What is a linked list?", answer: "A linked list is a linear data structure where each element (node) contains data and a pointer/reference to the next node in the sequence. Unlike arrays, linked lists do not store elements in contiguous memory locations.", category: "Computer Science" },
+  { question: "What is a stack?", answer: "A stack is a linear data structure that follows the Last In First Out (LIFO) principle. Elements are added and removed from the same end (the top). Common operations are push (add), pop (remove), and peek (view top).", category: "Computer Science" },
+  { question: "What is a queue?", answer: "A queue is a linear data structure that follows the First In First Out (FIFO) principle. Elements are added at the rear and removed from the front. It is used in scheduling, buffering, and breadth-first search.", category: "Computer Science" },
+  { question: "What is binary search?", answer: "Binary search is an efficient algorithm for finding an element in a sorted array. It repeatedly divides the search interval in half, reducing the search space to O(log n) comparisons compared to linear search's O(n).", category: "Computer Science" },
+  { question: "What is time complexity?", answer: "Time complexity is a measure of the amount of time an algorithm takes to complete as a function of the input size. It is expressed using Big O notation (e.g., O(n), O(log n), O(n²)) to describe worst-case performance.", category: "Computer Science" },
+  { question: "What is a class in programming?", answer: "A class is a blueprint for creating objects in object-oriented programming. It defines the attributes (data) and methods (behavior) that objects of that class will have. Objects are instances of a class.", category: "Programming" },
+  { question: "What is inheritance in OOP?", answer: "Inheritance is an OOP concept where a child class derives properties and behaviors from a parent class. It promotes code reuse and establishes a hierarchy between classes, allowing the child to extend or override parent functionality.", category: "Programming" },
+  { question: "What is polymorphism?", answer: "Polymorphism is an OOP concept that allows objects of different classes to be treated as objects of a common superclass. It allows the same method name to behave differently depending on the object's class.", category: "Programming" },
+  { question: "What is encapsulation?", answer: "Encapsulation is an OOP principle of bundling data and the methods that operate on that data within a single unit (class), and restricting direct access to some components. It protects the internal state of an object.", category: "Programming" },
+  { question: "What is abstraction in programming?", answer: "Abstraction is the process of hiding complex implementation details and showing only essential features. In OOP, abstract classes and interfaces define what methods a class should have without specifying how they are implemented.", category: "Programming" },
+  { question: "What is a hash table?", answer: "A hash table is a data structure that maps keys to values using a hash function. It provides average O(1) time complexity for insertion, deletion, and lookup operations, making it very efficient for data retrieval.", category: "Computer Science" },
+  { question: "What is a graph in data structures?", answer: "A graph is a non-linear data structure consisting of vertices (nodes) and edges (connections between nodes). Graphs are used to represent networks, social connections, maps, and relationships between entities.", category: "Computer Science" },
+  { question: "What is a tree data structure?", answer: "A tree is a hierarchical data structure with a root node and subtrees of children. Common types include binary trees, binary search trees, AVL trees, and heaps. Trees are used in file systems, databases, and parsing.", category: "Computer Science" },
+  { question: "What is TF-IDF?", answer: "TF-IDF (Term Frequency-Inverse Document Frequency) is a numerical statistic used in information retrieval to reflect how important a word is to a document in a collection. It multiplies term frequency (TF) by inverse document frequency (IDF).", category: "AI" },
+  { question: "What is Cosine Similarity?", answer: "Cosine similarity is a metric used to measure the similarity between two vectors by calculating the cosine of the angle between them. It is widely used in NLP and information retrieval to compare text documents.", category: "AI" },
+  { question: "What is a web server?", answer: "A web server is software that serves web content (HTML, CSS, JavaScript, images) over HTTP/HTTPS to clients (browsers). Examples include Apache, Nginx, and Node.js. It processes incoming requests and returns responses.", category: "Technology" },
+  { question: "What is HTTP?", answer: "HTTP (HyperText Transfer Protocol) is the foundation of data communication on the World Wide Web. It defines how messages are formatted and transmitted, and how web servers and browsers respond to various commands.", category: "Technology" },
+  { question: "What is REST API?", answer: "A REST API (Representational State Transfer) is an architectural style for distributed systems that uses standard HTTP methods (GET, POST, PUT, DELETE) to perform CRUD operations. REST APIs are stateless and use URLs to identify resources.", category: "Technology" },
+  { question: "What is JSON?", answer: "JSON (JavaScript Object Notation) is a lightweight data-interchange format that is easy for humans to read and write and easy for machines to parse and generate. It is widely used for transmitting data in web applications.", category: "Programming" },
+  { question: "What is a primary key in databases?", answer: "A primary key is a column or combination of columns in a relational database table that uniquely identifies each row. It must contain unique values and cannot contain NULL values. It ensures data integrity and enables efficient querying.", category: "Database" },
+  { question: "What is normalization in databases?", answer: "Database normalization is the process of organizing a database to reduce data redundancy and improve data integrity. It involves dividing large tables into smaller ones and defining relationships between them following Normal Forms (1NF, 2NF, 3NF).", category: "Database" },
+  { question: "What is software engineering?", answer: "Software engineering is the systematic application of engineering principles to the design, development, testing, deployment, and maintenance of software. It applies disciplined, quantified approaches to produce reliable and efficient software.", category: "Computer Science" },
+  { question: "What is Agile methodology?", answer: "Agile is a software development methodology that emphasizes iterative development, collaboration, and customer feedback. It breaks projects into short cycles called sprints (1-4 weeks), delivering working software incrementally.", category: "Technology" },
+  { question: "What is a framework in programming?", answer: "A programming framework is a platform for developing software applications that provides a foundation of pre-written code, tools, and libraries. Examples include React (JavaScript), Django (Python), and Spring (Java).", category: "Programming" },
+  { question: "What is an interpreter?", answer: "An interpreter is a program that directly executes instructions written in a programming language without requiring them to be compiled into machine language first. Python and JavaScript are commonly interpreted languages.", category: "Programming" },
+  { question: "What is debugging?", answer: "Debugging is the process of finding and fixing errors (bugs) in software. It involves identifying the cause of unexpected behavior, analyzing code, and correcting the flaw. Debuggers are tools that help step through code execution.", category: "Programming" },
+  { question: "What is computer networking?", answer: "Computer networking is the practice of connecting computers and other devices to share resources and communicate. It involves protocols like TCP/IP, hardware like routers and switches, and topologies that define the network structure.", category: "Technology" },
+];
+
+async function seed() {
+  console.log("Seeding knowledge base...");
+  
+  const existing = await db.select().from(knowledgeBaseTable);
+  if (existing.length > 0) {
+    console.log(`Knowledge base already has ${existing.length} entries. Skipping seed.`);
+    return;
+  }
+  
+  for (const entry of entries) {
+    await db.insert(knowledgeBaseTable).values(entry);
+  }
+  
+  console.log(`Seeded ${entries.length} knowledge base entries.`);
+}
+
+seed()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("Seed failed:", err);
+    process.exit(1);
+  });

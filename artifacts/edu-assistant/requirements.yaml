@@ -1,0 +1,18 @@
+packages:
+  "framer-motion": "For premium scroll animations and page transitions"
+  "react-markdown": "For rendering AI responses with rich formatting"
+  "remark-gfm": "For rendering tables and lists in markdown"
+  "clsx": "For conditional tailwind classes"
+  "tailwind-merge": "For merging tailwind classes efficiently"
+
+images:
+  - path: "artifacts/edu-assistant/public/images/hero-abstract.png"
+    description: "Abstract 3D geometric shapes (spheres, toruses, waves) in deep blue, indigo, and cyan floating in a clean professional space with soft studio lighting and glassmorphism elements"
+    aspect_ratio: "16:9"
+  - path: "artifacts/edu-assistant/public/images/developer-avatar.png"
+    description: "A professional, stylized 3D avatar of a software developer working on a laptop, surrounded by floating code symbols, in deep blue and teal tones"
+    aspect_ratio: "1:1"
+
+notes:
+  - "The app relies on session storage to keep track of the chat session ID across reloads."
+  - "React Query's useQuery and useMutation hooks from @workspace/api-client-react are used for data fetching."
