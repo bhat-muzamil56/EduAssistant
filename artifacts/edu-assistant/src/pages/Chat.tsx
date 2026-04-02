@@ -211,6 +211,7 @@ export default function Chat() {
   const { messages, isInitializing, isLoadingMessages, isSending, sendMessage, error } = useChat();
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [voiceInputPending, setVoiceInputPending] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
   const [voiceSupported] = useState(
@@ -224,6 +225,9 @@ export default function Chat() {
   const voiceModeRef = useRef(false);
   const selectedLangRef = useRef(LANGUAGES[0]);
   const sendMessageRef = useRef<((msg: string, lang?: string) => Promise<void>) | null>(null);
+  // Set to true when mic captured a transcript → triggers auto-speak on next AI reply
+  const voiceInputPendingRef = useRef(false);
+  const wasVoiceSendRef = useRef(false);
 
   // Keep lang ref in sync
   useEffect(() => { selectedLangRef.current = selectedLang; }, [selectedLang]);
@@ -264,12 +268,15 @@ export default function Chat() {
     recognition.onend = () => {
       setIsListening(false);
       const transcript = finalTranscript.trim();
-      // Always clean interim placeholder
       setInput(transcript);
-      // In voice mode: auto-send if we got a non-empty transcript
       if (voiceModeRef.current && transcript && sendMessageRef.current) {
+        // Voice Mode: auto-send immediately (auto-speak handled by existing effect)
         setInput("");
         sendMessageRef.current(transcript, selectedLangRef.current.code);
+      } else if (transcript) {
+        // Normal mic use: flag that the next send came from voice → auto-speak response
+        voiceInputPendingRef.current = true;
+        setVoiceInputPending(true);
       }
     };
 
@@ -355,14 +362,19 @@ export default function Chat() {
     window.speechSynthesis.speak(utterance);
   }, [stopSpeaking, startListening]);
 
-  // Auto-speak new assistant messages when voice mode is on
+  // Auto-speak new assistant messages when:
+  //  (a) Voice Mode is active (hands-free loop), OR
+  //  (b) user sent the last message via the mic button (wasVoiceSendRef)
   const lastSpokenIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!voiceModeRef.current || isSending) return;
+    const shouldAutoSpeak = voiceModeRef.current || wasVoiceSendRef.current;
+    if (!shouldAutoSpeak || isSending) return;
     const lastMsg = messages[messages.length - 1];
     if (!lastMsg || lastMsg.role !== "assistant") return;
     if (lastMsg.id === lastSpokenIdRef.current) return;
     lastSpokenIdRef.current = lastMsg.id;
+    // Reset the one-shot voice flag after triggering
+    wasVoiceSendRef.current = false;
     setTimeout(() => speak(lastMsg.content, lastMsg.id), 300);
   }, [messages, isSending, speak]);
 
@@ -385,6 +397,12 @@ export default function Chat() {
     const message = input.trim();
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "44px";
+    // If this message was typed via mic, mark it so the response is auto-spoken
+    if (voiceInputPendingRef.current) {
+      wasVoiceSendRef.current = true;
+      voiceInputPendingRef.current = false;
+      setVoiceInputPending(false);
+    }
     await sendMessage(message, selectedLang.code);
   };
 
@@ -395,6 +413,11 @@ export default function Chat() {
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    // If user manually edits after mic, cancel the auto-speak flag
+    if (voiceInputPendingRef.current) {
+      voiceInputPendingRef.current = false;
+      setVoiceInputPending(false);
+    }
     e.target.style.height = "44px";
     e.target.style.height = Math.min(e.target.scrollHeight, 128) + "px";
   };
@@ -783,12 +806,31 @@ export default function Chat() {
             )}
           </AnimatePresence>
 
+          {/* Voice-input pending hint */}
+          <AnimatePresence>
+            {voiceInputPending && input.trim() && (
+              <motion.div
+                key="voice-pending-hint"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 w-fit mx-auto"
+              >
+                <span className="text-amber-500 text-xs">🎤</span>
+                <span className="text-xs font-medium text-amber-500">Voice message ready — AI will speak the reply</span>
+                <span className="text-amber-500 text-xs">🔊</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form
             onSubmit={handleSubmit}
             className={cn(
               "flex items-end gap-2 bg-card border-2 transition-all rounded-2xl p-2",
               isListening
                 ? "border-red-500/60 shadow-md shadow-red-500/10"
+                : voiceInputPending
+                ? "border-amber-500/60 shadow-md shadow-amber-500/10"
                 : "border-border focus-within:border-primary/60 focus-within:shadow-md"
             )}
           >
@@ -805,6 +847,8 @@ export default function Chat() {
               placeholder={
                 isListening
                   ? "Listening to your voice…"
+                  : voiceInputPending
+                  ? "Voice captured — press ↵ to send (AI will speak back 🔊)"
                   : isReady
                   ? "Message EduAssistant… or tap 🎤 to speak"
                   : "Connecting…"
@@ -821,11 +865,19 @@ export default function Chat() {
                 type="button"
                 onClick={toggleListening}
                 disabled={!isReady || isSending}
-                title={isListening ? "Stop listening" : "Speak your question"}
+                title={
+                  isListening
+                    ? "Stop listening"
+                    : voiceInputPending
+                    ? "Re-record your question"
+                    : "Speak your question — AI will speak back"
+                }
                 className={cn(
                   "p-3 rounded-xl transition-all mb-1 shrink-0 relative",
                   isListening
                     ? "bg-red-500 text-white hover:bg-red-600"
+                    : voiceInputPending
+                    ? "bg-amber-500 text-white hover:bg-amber-600"
                     : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
                 )}
               >
@@ -833,6 +885,11 @@ export default function Chat() {
                   <>
                     <MicOff className="w-4 h-4" />
                     <span className="absolute inset-0 rounded-xl bg-red-500 animate-ping opacity-25" />
+                  </>
+                ) : voiceInputPending ? (
+                  <>
+                    <Mic className="w-4 h-4" />
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white text-amber-600 text-[9px] flex items-center justify-center font-bold shadow">🔊</span>
                   </>
                 ) : (
                   <Mic className="w-4 h-4" />
