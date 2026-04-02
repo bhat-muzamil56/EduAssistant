@@ -5,7 +5,7 @@ import {
   ArrowRight, Sparkles, Brain, CheckCircle2, 
   Layers, Database, Code2, Zap, ShieldCheck, 
   Clock, Maximize, Smartphone, Settings,
-  BarChart3, Network, X, ChevronRight
+  BarChart3, Network, Mic, X, ChevronRight
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -596,9 +596,9 @@ export default function Home() {
                 desc: "A protected admin panel lets administrators view all users, monitor active chat sessions, and oversee platform activity in real time."
               },
               {
-                icon: Network,
-                label: "TF-IDF Retrieval",
-                desc: "Cosine similarity across TF-IDF vectors picks the top-8 most relevant knowledge entries for every query before the AI ever writes a word."
+                icon: Mic,
+                label: "Voice Interaction",
+                desc: "Tap the microphone in chat to speak your question out loud. The browser transcribes it in real time and drops the text straight into the message box."
               }
             ].map((item, i) => (
               <div key={i} className="p-6 border border-border rounded-2xl hover:border-primary hover:shadow-md transition-all group">

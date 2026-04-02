@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
   Send,
@@ -14,6 +14,8 @@ import {
   Brain,
   Lightbulb,
   ChevronRight,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -38,13 +40,88 @@ function getGreeting() {
   return "Good evening";
 }
 
+// ── Web Speech API type shim ────────────────────────────────────────────────
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: Event) => void) | null;
+  onend: (() => void) | null;
+}
+declare const webkitSpeechRecognition: new () => SpeechRecognitionInstance;
+declare const SpeechRecognition: new () => SpeechRecognitionInstance;
+
 export default function Chat() {
   const [, navigate] = useLocation();
   const { user, logout, loading: authLoading } = useAuth();
   const { messages, isInitializing, isLoadingMessages, isSending, sendMessage, error } = useChat();
   const [input, setInput] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported] = useState(
+    () => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
+  );
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const toggleListening = useCallback(() => {
+    if (!voiceSupported) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const Ctor = (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance; webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).webkitSpeechRecognition;
+    if (!Ctor) return;
+
+    const recognition = new Ctor();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let finalTranscript = "";
+
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      let interim = "";
+      for (let i = e.results.length - 1; i >= 0; i--) {
+        const r = e.results[i];
+        if (r.isFinal) {
+          finalTranscript += r[0].transcript;
+        } else {
+          interim = r[0].transcript;
+        }
+      }
+      setInput((prev) => {
+        const base = prev.replace(/\[listening…[^\]]*\]/g, "").trimEnd();
+        return interim
+          ? `${base} ${finalTranscript}[listening… ${interim}]`.trimStart()
+          : `${base} ${finalTranscript}`.trimStart();
+      });
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      // clean up any leftover interim placeholder
+      setInput((prev) => prev.replace(/\[listening…[^\]]*\]/g, "").trimEnd());
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, voiceSupported]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -310,9 +387,37 @@ export default function Chat() {
       {/* Input Area */}
       <div className="flex-shrink-0 bg-background/90 backdrop-blur-md border-t border-border p-4 w-full">
         <div className="max-w-4xl mx-auto">
+
+          {/* Recording indicator */}
+          <AnimatePresence>
+            {isListening && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 w-fit mx-auto"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs font-medium text-red-500">Listening… speak now</span>
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className="ml-1 text-red-500/70 hover:text-red-500 transition-colors text-xs underline"
+                >
+                  stop
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form
             onSubmit={handleSubmit}
-            className="flex items-end gap-2 bg-card border-2 border-border focus-within:border-primary/60 focus-within:shadow-md transition-all rounded-2xl p-2"
+            className={cn(
+              "flex items-end gap-2 bg-card border-2 transition-all rounded-2xl p-2",
+              isListening
+                ? "border-red-500/60 shadow-md shadow-red-500/10"
+                : "border-border focus-within:border-primary/60 focus-within:shadow-md"
+            )}
           >
             <textarea
               ref={textareaRef}
@@ -324,12 +429,44 @@ export default function Chat() {
                   handleSubmit(e);
                 }
               }}
-              placeholder={isReady ? `Message EduAssistant…` : "Connecting…"}
+              placeholder={
+                isListening
+                  ? "Listening to your voice…"
+                  : isReady
+                  ? "Message EduAssistant… or tap 🎤 to speak"
+                  : "Connecting…"
+              }
               disabled={!isReady || isSending}
               className="flex-1 bg-transparent resize-none outline-none p-3 text-foreground placeholder:text-muted-foreground"
               style={{ minHeight: "44px", maxHeight: "128px" }}
               rows={1}
             />
+
+            {/* Mic button — only shown when speech is supported */}
+            {voiceSupported && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                disabled={!isReady || isSending}
+                title={isListening ? "Stop listening" : "Speak your question"}
+                className={cn(
+                  "p-3 rounded-xl transition-all mb-1 shrink-0 relative",
+                  isListening
+                    ? "bg-red-500 text-white hover:bg-red-600"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                )}
+              >
+                {isListening ? (
+                  <>
+                    <MicOff className="w-4 h-4" />
+                    <span className="absolute inset-0 rounded-xl bg-red-500 animate-ping opacity-25" />
+                  </>
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
+            )}
+
             <button
               type="submit"
               disabled={!input.trim() || !isReady || isSending}
