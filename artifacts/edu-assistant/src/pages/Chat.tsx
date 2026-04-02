@@ -16,6 +16,9 @@ import {
   ChevronRight,
   Mic,
   MicOff,
+  Volume2,
+  VolumeX,
+  Radio,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -69,16 +72,13 @@ export default function Chat() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Ref so recognition callbacks always see the latest voiceMode value
+  const voiceModeRef = useRef(false);
+  // Ref so recognition callbacks can call sendMessage without stale closure
+  const sendMessageRef = useRef<((msg: string) => Promise<void>) | null>(null);
 
-  const toggleListening = useCallback(() => {
+  const startListening = useCallback(() => {
     if (!voiceSupported) return;
-
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
     const Ctor = (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance; webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition
       ?? (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).webkitSpeechRecognition;
     if (!Ctor) return;
@@ -100,11 +100,9 @@ export default function Chat() {
           interim = r[0].transcript;
         }
       }
-      setInput((prev) => {
-        const base = prev.replace(/\[listening…[^\]]*\]/g, "").trimEnd();
-        return interim
-          ? `${base} ${finalTranscript}[listening… ${interim}]`.trimStart()
-          : `${base} ${finalTranscript}`.trimStart();
+      setInput(() => {
+        if (interim) return `${finalTranscript}[…${interim}]`;
+        return finalTranscript;
       });
     };
 
@@ -114,14 +112,97 @@ export default function Chat() {
 
     recognition.onend = () => {
       setIsListening(false);
-      // clean up any leftover interim placeholder
-      setInput((prev) => prev.replace(/\[listening…[^\]]*\]/g, "").trimEnd());
+      const transcript = finalTranscript.trim();
+      // Always clean interim placeholder
+      setInput(transcript);
+      // In voice mode: auto-send if we got a non-empty transcript
+      if (voiceModeRef.current && transcript && sendMessageRef.current) {
+        setInput("");
+        sendMessageRef.current(transcript);
+      }
     };
 
     recognitionRef.current = recognition;
     recognition.start();
     setIsListening(true);
-  }, [isListening, voiceSupported]);
+  }, [voiceSupported]);
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      startListening();
+    }
+  }, [isListening, startListening]);
+
+  // ── Text-to-Speech (TTS) ────────────────────────────────────────────────
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+
+  // Keep refs in sync so recognition callbacks never see stale values
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
+
+  const stripMarkdown = (text: string) =>
+    text
+      .replace(/#{1,6}\s+/g, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/`{1,3}[^`]*`{1,3}/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/[>\-*_~]/g, "")
+      .replace(/\n{2,}/g, ". ")
+      .replace(/\n/g, " ")
+      .trim();
+
+  const stopSpeaking = useCallback(() => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setSpeakingMsgId(null);
+  }, []);
+
+  const speak = useCallback((text: string, msgId: string) => {
+    if (!window.speechSynthesis) return;
+    stopSpeaking();
+    const clean = stripMarkdown(text);
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = "en-US";
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(
+      (v) => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha"))
+    ) ?? voices.find((v) => v.lang.startsWith("en"));
+    if (preferred) utterance.voice = preferred;
+
+    utterance.onstart = () => { setIsSpeaking(true); setSpeakingMsgId(msgId); };
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setSpeakingMsgId(null);
+      // After AI finishes speaking → auto-open mic for next question
+      if (voiceModeRef.current) setTimeout(() => startListening(), 500);
+    };
+    utterance.onerror = () => { setIsSpeaking(false); setSpeakingMsgId(null); };
+
+    window.speechSynthesis.speak(utterance);
+  }, [stopSpeaking, startListening]);
+
+  // Auto-speak new assistant messages when voice mode is on
+  const lastSpokenIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!voiceModeRef.current || isSending) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant") return;
+    if (lastMsg.id === lastSpokenIdRef.current) return;
+    lastSpokenIdRef.current = lastMsg.id;
+    setTimeout(() => speak(lastMsg.content, lastMsg.id), 300);
+  }, [messages, isSending, speak]);
+
+  // Cleanup speech on unmount
+  useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -183,6 +264,39 @@ export default function Chat() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Voice Mode toggle */}
+          {voiceSupported && (
+            <button
+              onClick={() => {
+                const next = !voiceMode;
+                setVoiceMode(next);
+                if (next) {
+                  // Turning on: start mic immediately
+                  setTimeout(() => startListening(), 100);
+                } else {
+                  // Turning off: stop everything
+                  stopSpeaking();
+                  recognitionRef.current?.stop();
+                  setIsListening(false);
+                }
+              }}
+              title={voiceMode ? "Voice Mode ON — click to turn off" : "Turn on Voice Mode — fully hands-free"}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
+                voiceMode
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
+                  : "bg-secondary text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              <Radio className={cn("w-3.5 h-3.5", voiceMode && "animate-pulse")} />
+              <span className="hidden sm:inline">
+                {voiceMode
+                  ? isSpeaking ? "Speaking…" : isListening ? "Listening…" : "Voice ON"
+                  : "Voice Mode"}
+              </span>
+            </button>
+          )}
+
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/60 border border-border text-sm">
             <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
               <span className="text-primary text-xs font-bold">{user.username[0].toUpperCase()}</span>
@@ -335,7 +449,8 @@ export default function Chat() {
                       "px-5 py-4 rounded-2xl shadow-sm max-w-[85%]",
                       msg.role === "user"
                         ? "bg-primary text-primary-foreground rounded-tr-sm"
-                        : "bg-card border border-border/50 text-foreground rounded-tl-sm"
+                        : "bg-card border border-border/50 text-foreground rounded-tl-sm",
+                      speakingMsgId === msg.id && "ring-2 ring-primary/40"
                     )}
                   >
                     {msg.role === "assistant" ? (
@@ -343,12 +458,52 @@ export default function Chat() {
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {msg.content}
                         </ReactMarkdown>
-                        {msg.confidence !== null && msg.confidence !== undefined && msg.confidence > 0 && (
-                          <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
-                            Knowledge confidence: {Math.round(msg.confidence * 100)}%
+
+                        {/* Bottom row: confidence + speak/stop button */}
+                        <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            {msg.confidence !== null && msg.confidence !== undefined && msg.confidence > 0 && (
+                              <>
+                                <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                                Knowledge confidence: {Math.round(msg.confidence * 100)}%
+                              </>
+                            )}
                           </div>
-                        )}
+
+                          {/* Soundwave + speak/stop button */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {speakingMsgId === msg.id && (
+                              <div className="flex items-end gap-0.5 h-4">
+                                {[0, 150, 75, 225, 0].map((delay, i) => (
+                                  <span
+                                    key={i}
+                                    className="w-0.5 rounded-full bg-primary animate-bounce"
+                                    style={{ height: `${[6,12,8,10,5][i]}px`, animationDelay: `${delay}ms` }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                speakingMsgId === msg.id
+                                  ? stopSpeaking()
+                                  : speak(msg.content, msg.id)
+                              }
+                              title={speakingMsgId === msg.id ? "Stop speaking" : "Read aloud"}
+                              className={cn(
+                                "p-1 rounded-lg transition-colors",
+                                speakingMsgId === msg.id
+                                  ? "text-primary hover:text-primary/70"
+                                  : "text-muted-foreground/50 hover:text-primary hover:bg-primary/10"
+                              )}
+                            >
+                              {speakingMsgId === msg.id
+                                ? <VolumeX className="w-3.5 h-3.5" />
+                                : <Volume2 className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
