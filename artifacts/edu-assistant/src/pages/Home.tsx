@@ -373,7 +373,7 @@ export default function Home() {
             </div>
             <div className="md:col-span-3">
               <h2 className="text-3xl font-bold mb-2">About the Developer</h2>
-              <div className="text-primary font-medium mb-6">Developer: Akeel Ahmad</div>
+              <div className="text-primary font-medium mb-6">Developer: Muzamil Arshid</div>
               <p className="text-muted-foreground leading-relaxed mb-8">
                 This project demonstrates the practical application of Natural Language Processing, Machine Learning, and Full-Stack Web Development. Built with modern technologies including React, Node.js, Express, PostgreSQL, and TF-IDF vectorization for intelligent academic assistance.
               </p>
