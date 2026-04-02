@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const chatSessionsTable = pgTable("chat_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

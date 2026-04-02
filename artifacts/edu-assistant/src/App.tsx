@@ -4,11 +4,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 import AuthPage from "./pages/AuthPage";
 import Chat from "./pages/Chat";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+
+setAuthTokenGetter(() => localStorage.getItem("user_token"));
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -5,7 +5,7 @@ import {
   chatMessagesTable,
   knowledgeBaseTable,
 } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { findTopMatches } from "../lib/tfidf.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ai } from "@workspace/integrations-gemini-ai";
@@ -14,6 +14,7 @@ import {
   GetChatMessagesParams,
   SendChatMessageParams,
 } from "@workspace/api-zod";
+import { authMiddleware, type AuthRequest } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -91,6 +92,33 @@ Synthesize both the knowledge base and Gemini's insights into one perfect, compr
   );
 }
 
+router.get("/my-session", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const existing = await db
+    .select()
+    .from(chatSessionsTable)
+    .where(eq(chatSessionsTable.userId, userId))
+    .orderBy(chatSessionsTable.createdAt)
+    .limit(1);
+
+  if (existing.length > 0) {
+    res.json({ id: existing[0].id, createdAt: existing[0].createdAt.toISOString() });
+    return;
+  }
+
+  const [session] = await db
+    .insert(chatSessionsTable)
+    .values({ userId })
+    .returning();
+
+  res.status(201).json({ id: session.id, createdAt: session.createdAt.toISOString() });
+});
+
 router.post("/sessions", async (req, res) => {
   const [session] = await db
     .insert(chatSessionsTable)
@@ -102,13 +130,29 @@ router.post("/sessions", async (req, res) => {
   });
 });
 
-router.get("/sessions/:sessionId/messages", async (req, res) => {
+router.get("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = GetChatMessagesParams.parse(req.params);
+  const userId = req.userId;
+
+  if (userId) {
+    const session = await db
+      .select()
+      .from(chatSessionsTable)
+      .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId)))
+      .limit(1);
+
+    if (session.length === 0) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+  }
+
   const messages = await db
     .select()
     .from(chatMessagesTable)
     .where(eq(chatMessagesTable.sessionId, sessionId))
     .orderBy(chatMessagesTable.createdAt);
+
   res.json(
     messages.map((m) => ({
       id: m.id,
@@ -121,9 +165,23 @@ router.get("/sessions/:sessionId/messages", async (req, res) => {
   );
 });
 
-router.post("/sessions/:sessionId/messages", async (req, res) => {
+router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = SendChatMessageParams.parse(req.params);
   const { content } = SendChatMessageBody.parse(req.body);
+  const userId = req.userId;
+
+  if (userId) {
+    const session = await db
+      .select()
+      .from(chatSessionsTable)
+      .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId)))
+      .limit(1);
+
+    if (session.length === 0) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+  }
 
   await db.insert(chatMessagesTable).values({
     sessionId,

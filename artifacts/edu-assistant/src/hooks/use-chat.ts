@@ -6,45 +6,57 @@ import {
   getGetChatMessagesQueryKey,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
-const SESSION_KEY = "chatSessionId";
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const SESSION_STORAGE_PREFIX = "chatSessionId_";
 
-async function createSession(): Promise<string> {
-  const res = await fetch("/api/chat/sessions", { method: "POST" });
-  if (!res.ok) throw new Error("Failed to create session");
+async function fetchMySession(token: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/chat/my-session`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to get session");
   const data = await res.json();
   return data.id as string;
 }
 
 export function useChat() {
-  const [sessionId, setSessionId] = useState<string | null>(() =>
-    sessionStorage.getItem(SESSION_KEY)
-  );
-  const [isInitializing, setIsInitializing] = useState(!sessionId);
+  const { user, token } = useAuth();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const initStarted = useRef(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (sessionId || initStarted.current) return;
+    if (!token || !user || initStarted.current) return;
     initStarted.current = true;
 
-    createSession()
+    const storageKey = `${SESSION_STORAGE_PREFIX}${user.id}`;
+    const cached = localStorage.getItem(storageKey);
+
+    if (cached) {
+      setSessionId(cached);
+      setIsInitializing(false);
+      return;
+    }
+
+    fetchMySession(token)
       .then((id) => {
-        sessionStorage.setItem(SESSION_KEY, id);
+        localStorage.setItem(storageKey, id);
         setSessionId(id);
       })
       .catch(() => {
         toast({
           title: "Connection Error",
-          description: "Could not initialize a chat session. Please refresh the page.",
+          description: "Could not load your chat session. Please refresh.",
           variant: "destructive",
         });
       })
       .finally(() => {
         setIsInitializing(false);
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const messagesQuery = useGetChatMessages(sessionId ?? "", {
     query: {
