@@ -29,6 +29,8 @@ function langName(code: string): string {
     "ml": "Malayalam", "ml-IN": "Malayalam",
     "kn": "Kannada", "kn-IN": "Kannada",
     "te": "Telugu", "te-IN": "Telugu",
+    "bho": "Bhojpuri", "bho-IN": "Bhojpuri",
+    "ks": "Kashmiri", "ks-IN": "Kashmiri",
     "es": "Spanish", "es-ES": "Spanish", "es-MX": "Spanish",
     "fr": "French", "fr-FR": "French",
     "zh": "Chinese", "zh-CN": "Chinese (Simplified)", "zh-TW": "Chinese (Traditional)",

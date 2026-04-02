@@ -41,6 +41,8 @@ const LANGUAGES = [
   { code: "te-IN", name: "తెలుగు",      flag: "🇮🇳" },
   { code: "bn-BD", name: "বাংলা",       flag: "🇧🇩" },
   { code: "pa-IN", name: "ਪੰਜਾਬੀ",     flag: "🇮🇳" },
+  { code: "bho-IN", name: "भोजपुरी",   flag: "🇮🇳" },
+  { code: "ks-IN",  name: "کٲشُر",     flag: "🇮🇳" },
   { code: "fr-FR", name: "Français",   flag: "🇫🇷" },
   { code: "es-ES", name: "Español",    flag: "🇪🇸" },
   { code: "de-DE", name: "Deutsch",    flag: "🇩🇪" },
