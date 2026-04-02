@@ -145,6 +145,9 @@ components:
       properties:
         content:
           type: string
+        lang:
+          type: string
+          description: BCP-47 language code for the AI response (e.g. hi-IN, ta-IN)
       required:
         - content
     KnowledgeEntry:

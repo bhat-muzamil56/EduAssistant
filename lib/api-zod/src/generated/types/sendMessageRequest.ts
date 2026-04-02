@@ -8,4 +8,5 @@
 
 export interface SendMessageRequest {
   content: string;
+  lang?: string;
 }

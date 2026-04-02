@@ -33,6 +33,7 @@ export interface ChatMessage {
 
 export interface SendMessageRequest {
   content: string;
+  lang?: string;
 }
 
 export interface KnowledgeEntry {
