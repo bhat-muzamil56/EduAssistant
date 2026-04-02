@@ -44,6 +44,23 @@ A full-stack AI-powered Q&A chatbot for students built with:
 - 51 curated Q&A entries covering CS, AI, Programming, and Databases
 - PostgreSQL storage for sessions, messages, and knowledge base
 
+### Admin Panel
+
+- Admin login at `/admin` — credentials from `ADMIN_USERNAME` / `ADMIN_PASSWORD` secrets
+- Admin dashboard at `/admin/dashboard` — protected by JWT (stored in localStorage `admin_token`)
+  - Knowledge Base tab: full CRUD (add, edit, delete) for all knowledge entries
+  - Chat Sessions tab: list all sessions with expandable message history
+- Backend admin routes: `POST /api/admin/login`, `GET|POST|PUT|DELETE /api/admin/knowledge`, `GET /api/admin/sessions`
+
+### User Authentication
+
+- Users can sign up at `/signup` (username, email, password) or log in at `/login`
+- JWT stored in localStorage `user_token`, expires in 7 days
+- Chat page is protected — unauthenticated users are redirected to `/login`
+- Navbar shows "Sign In" / "Get Started" for guests and username + logout for signed-in users
+- Backend: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/auth/me`
+- Passwords hashed with bcryptjs (12 rounds)
+
 ### Seeding
 
 To re-seed the knowledge base: `pnpm --filter @workspace/scripts run seed-knowledge`

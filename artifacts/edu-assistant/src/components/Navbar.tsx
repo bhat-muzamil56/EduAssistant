@@ -1,17 +1,17 @@
 import { Link, useLocation } from "wouter";
-import { GraduationCap, MessageSquare, Menu, X } from "lucide-react";
+import { GraduationCap, MessageSquare, Menu, X, LogOut, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 export function Navbar() {
   const [location] = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout, loading } = useAuth();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -29,8 +29,8 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex-shrink-0">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               className="flex items-center gap-2.5 text-primary group hover:opacity-80 transition-opacity"
             >
               <div className="bg-primary/10 p-2.5 rounded-xl group-hover:bg-primary/20 transition-colors">
@@ -41,33 +41,66 @@ export function Navbar() {
               </span>
             </Link>
           </div>
-          
+
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center space-x-8">
-            {isHome ? (
+          <div className="hidden md:flex items-center gap-4">
+            {isHome && (
               <>
                 <a href="#about" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">About</a>
                 <a href="#architecture" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Architecture</a>
                 <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Features</a>
               </>
-            ) : null}
-            
-            {isChat ? (
-              <Link 
-                href="/" 
-                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              >
+            )}
+
+            {isChat && (
+              <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
                 Back to Home
               </Link>
-            ) : null}
+            )}
 
-            <Link
-              href="/chat"
-              className="inline-flex items-center justify-center px-6 py-2.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Launch Chat
-            </Link>
+            {!loading && (
+              <>
+                {user ? (
+                  <div className="flex items-center gap-3">
+                    {!isChat && (
+                      <Link
+                        href="/chat"
+                        className="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Launch Chat
+                      </Link>
+                    )}
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50 border border-border">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">{user.username}</span>
+                    </div>
+                    <button
+                      onClick={logout}
+                      className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Sign out"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href="/login"
+                      className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/signup"
+                      className="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                    >
+                      Get Started
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -98,16 +131,52 @@ export function Navbar() {
                 Back to Home
               </Link>
             )}
-            <div className="pt-4">
-              <Link 
-                href="/chat" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center px-6 py-3 rounded-xl text-base font-semibold bg-primary text-primary-foreground"
-              >
-                <MessageSquare className="w-5 h-5 mr-2" />
-                Launch Chat
-              </Link>
-            </div>
+            {!loading && (
+              <div className="pt-4 space-y-2">
+                {user ? (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-muted-foreground">
+                      <User className="w-4 h-4" />
+                      Signed in as <span className="text-foreground font-semibold">{user.username}</span>
+                    </div>
+                    {!isChat && (
+                      <Link
+                        href="/chat"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="w-full flex items-center justify-center px-6 py-3 rounded-xl text-base font-semibold bg-primary text-primary-foreground"
+                      >
+                        <MessageSquare className="w-5 h-5 mr-2" />
+                        Launch Chat
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => { logout(); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-base font-medium border border-border hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full flex items-center justify-center px-6 py-3 rounded-xl text-base font-medium border border-border hover:bg-secondary/50"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full flex items-center justify-center px-6 py-3 rounded-xl text-base font-semibold bg-primary text-primary-foreground"
+                    >
+                      Get Started — It's Free
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

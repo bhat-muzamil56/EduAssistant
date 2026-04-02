@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { useAuth } from "@/context/AuthContext";
 
 // Stagger variants for animations
 const containerVariants = {
@@ -24,6 +25,7 @@ const itemVariants = {
 };
 
 export default function Home() {
+  const { user } = useAuth();
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -59,11 +61,11 @@ export default function Home() {
               </motion.p>
               
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
-                <Link 
-                  href="/chat" 
+                <Link
+                  href={user ? "/chat" : "/signup"}
                   className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-base font-bold bg-primary text-primary-foreground shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-1 transition-all duration-300"
                 >
-                  Try the Chatbot
+                  {user ? "Launch Chat" : "Get Started — It's Free"}
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
                 <a 

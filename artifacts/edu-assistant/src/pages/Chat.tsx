@@ -1,15 +1,24 @@
 import { useState, useRef, useEffect } from "react";
-import { Link } from "wouter";
-import { Send, ArrowLeft, Bot, User, Loader2, ShieldCheck, RefreshCw } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Send, ArrowLeft, Bot, User, Loader2, ShieldCheck, RefreshCw, LogOut } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useChat } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Chat() {
+  const [, navigate] = useLocation();
+  const { user, logout, loading: authLoading } = useAuth();
   const { messages, isInitializing, isLoadingMessages, isSending, sendMessage, error } = useChat();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [authLoading, user, navigate]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -27,12 +36,20 @@ export default function Chat() {
 
   const isReady = !isInitializing && !isLoadingMessages;
 
+  if (authLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden relative">
       {/* App Header */}
       <header className="flex-shrink-0 h-16 glass-panel border-b border-border/50 flex items-center px-4 justify-between z-10">
         <div className="flex items-center gap-4">
-          <Link 
+          <Link
             href="/"
             className="p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
           >
@@ -49,6 +66,19 @@ export default function Chat() {
               </p>
             </div>
           </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 border border-border text-sm">
+            <User className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="font-medium text-foreground">{user.username}</span>
+          </div>
+          <button
+            onClick={logout}
+            className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
