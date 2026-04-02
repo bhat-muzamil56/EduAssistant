@@ -85,9 +85,9 @@ export function useChat() {
   });
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, lang?: string) => {
       if (!sessionId || !content.trim()) return;
-      await sendMutation.mutateAsync({ sessionId, data: { content } });
+      await sendMutation.mutateAsync({ sessionId, data: { content, lang } });
     },
     [sessionId, sendMutation]
   );

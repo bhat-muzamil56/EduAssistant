@@ -41,6 +41,7 @@ export const SendChatMessageParams = zod.object({
 
 export const SendChatMessageBody = zod.object({
   content: zod.string(),
+  lang: zod.string().optional(),
 });
 
 export const SendChatMessageResponse = zod.object({

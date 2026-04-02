@@ -18,12 +18,46 @@ import { authMiddleware, type AuthRequest } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
+// Map BCP-47 codes to human-readable language names for the AI prompt
+function langName(code: string): string {
+  const map: Record<string, string> = {
+    "en": "English", "en-US": "English", "en-GB": "English",
+    "ar": "Arabic", "ar-SA": "Arabic",
+    "ur": "Urdu", "ur-PK": "Urdu",
+    "hi": "Hindi", "hi-IN": "Hindi",
+    "es": "Spanish", "es-ES": "Spanish", "es-MX": "Spanish",
+    "fr": "French", "fr-FR": "French",
+    "zh": "Chinese", "zh-CN": "Chinese (Simplified)", "zh-TW": "Chinese (Traditional)",
+    "de": "German", "de-DE": "German",
+    "pt": "Portuguese", "pt-BR": "Portuguese (Brazilian)", "pt-PT": "Portuguese",
+    "tr": "Turkish", "tr-TR": "Turkish",
+    "bn": "Bengali", "bn-BD": "Bengali",
+    "ru": "Russian", "ru-RU": "Russian",
+    "pa": "Punjabi", "pa-IN": "Punjabi",
+    "ja": "Japanese", "ja-JP": "Japanese",
+    "it": "Italian", "it-IT": "Italian",
+    "ko": "Korean", "ko-KR": "Korean",
+    "ms": "Malay", "ms-MY": "Malay",
+    "id": "Indonesian", "id-ID": "Indonesian",
+    "sw": "Swahili", "sw-KE": "Swahili",
+    "nl": "Dutch", "nl-NL": "Dutch",
+    "fa": "Persian", "fa-IR": "Persian",
+    "vi": "Vietnamese", "vi-VN": "Vietnamese",
+    "th": "Thai", "th-TH": "Thai",
+    "pl": "Polish", "pl-PL": "Polish",
+  };
+  return map[code] ?? map[code.split("-")[0]] ?? "English";
+}
+
 async function getGeminiPerspective(
   question: string,
-  context: string
+  context: string,
+  lang = "en"
 ): Promise<string> {
+  const language = langName(lang);
   try {
     const prompt = `You are a CS/AI tutor. Give a clear, friendly, intuitive explanation of the following question in 2-3 short paragraphs. Use simple language, relatable analogies, and a real-world example. Do not use heavy markdown — keep it conversational.
+IMPORTANT: You MUST respond entirely in ${language}. Every word of your answer must be in ${language}.
 
 ${context ? `Relevant context:\n${context}\n\n` : ""}Question: ${question}`;
 
@@ -42,9 +76,13 @@ async function getFinalAnswer(
   question: string,
   knowledgeContext: string,
   geminiInsight: string,
-  chatHistory: { role: "user" | "assistant"; content: string }[]
+  chatHistory: { role: "user" | "assistant"; content: string }[],
+  lang = "en"
 ): Promise<string> {
+  const language = langName(lang);
   const systemPrompt = `You are EduAssistant — an AI education tutor for Computer Science and Artificial Intelligence, powered by both OpenAI GPT and Google Gemini working together.
+
+🌐 LANGUAGE INSTRUCTION (highest priority): You MUST respond ENTIRELY in ${language}. Every single word of your answer — including headings, labels, examples, and the closing line — must be written in ${language}. Do not mix languages. Do not fall back to English unless ${language} IS English.
 
 ## Your personality:
 - Friendly, patient, and encouraging — like a great university tutor
@@ -167,7 +205,7 @@ router.get("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequ
 
 router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = SendChatMessageParams.parse(req.params);
-  const { content } = SendChatMessageBody.parse(req.body);
+  const { content, lang = "en" } = SendChatMessageBody.parse(req.body);
   const userId = req.userId;
 
   if (userId) {
@@ -217,13 +255,14 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
     content: m.content,
   }));
 
-  const geminiInsight = await getGeminiPerspective(content, knowledgeContext);
+  const geminiInsight = await getGeminiPerspective(content, knowledgeContext, lang);
 
   const responseContent = await getFinalAnswer(
     content,
     knowledgeContext,
     geminiInsight,
-    chatHistory
+    chatHistory,
+    lang
   );
 
   const [assistantMsg] = await db

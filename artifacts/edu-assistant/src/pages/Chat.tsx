@@ -14,11 +14,13 @@ import {
   Brain,
   Lightbulb,
   ChevronRight,
+  ChevronDown,
   Mic,
   MicOff,
   Volume2,
   VolumeX,
   Radio,
+  Globe,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -26,6 +28,34 @@ import { useChat } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+
+// ── Supported languages ─────────────────────────────────────────────────────
+const LANGUAGES = [
+  { code: "en-US", name: "English",    flag: "🇺🇸" },
+  { code: "ar-SA", name: "العربية",    flag: "🇸🇦" },
+  { code: "ur-PK", name: "اردو",       flag: "🇵🇰" },
+  { code: "hi-IN", name: "हिन्दी",      flag: "🇮🇳" },
+  { code: "bn-BD", name: "বাংলা",       flag: "🇧🇩" },
+  { code: "pa-IN", name: "ਪੰਜਾਬੀ",     flag: "🇮🇳" },
+  { code: "fr-FR", name: "Français",   flag: "🇫🇷" },
+  { code: "es-ES", name: "Español",    flag: "🇪🇸" },
+  { code: "de-DE", name: "Deutsch",    flag: "🇩🇪" },
+  { code: "pt-BR", name: "Português",  flag: "🇧🇷" },
+  { code: "zh-CN", name: "中文",        flag: "🇨🇳" },
+  { code: "ja-JP", name: "日本語",      flag: "🇯🇵" },
+  { code: "ko-KR", name: "한국어",      flag: "🇰🇷" },
+  { code: "ru-RU", name: "Русский",    flag: "🇷🇺" },
+  { code: "tr-TR", name: "Türkçe",     flag: "🇹🇷" },
+  { code: "fa-IR", name: "فارسی",      flag: "🇮🇷" },
+  { code: "ms-MY", name: "Melayu",     flag: "🇲🇾" },
+  { code: "id-ID", name: "Indonesia",  flag: "🇮🇩" },
+  { code: "vi-VN", name: "Tiếng Việt", flag: "🇻🇳" },
+  { code: "th-TH", name: "ภาษาไทย",    flag: "🇹🇭" },
+  { code: "nl-NL", name: "Nederlands", flag: "🇳🇱" },
+  { code: "pl-PL", name: "Polski",     flag: "🇵🇱" },
+  { code: "it-IT", name: "Italiano",   flag: "🇮🇹" },
+  { code: "sw-KE", name: "Kiswahili",  flag: "🇰🇪" },
+];
 
 const SUGGESTIONS = [
   { icon: Brain, label: "What is machine learning?", category: "AI" },
@@ -66,16 +96,22 @@ export default function Chat() {
   const { messages, isInitializing, isLoadingMessages, isSending, sendMessage, error } = useChat();
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
   const [voiceSupported] = useState(
     () => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
   );
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Ref so recognition callbacks always see the latest voiceMode value
+  const langMenuRef = useRef<HTMLDivElement>(null);
+  // Refs so recognition/TTS callbacks never see stale values
   const voiceModeRef = useRef(false);
-  // Ref so recognition callbacks can call sendMessage without stale closure
-  const sendMessageRef = useRef<((msg: string) => Promise<void>) | null>(null);
+  const selectedLangRef = useRef(LANGUAGES[0]);
+  const sendMessageRef = useRef<((msg: string, lang?: string) => Promise<void>) | null>(null);
+
+  // Keep lang ref in sync
+  useEffect(() => { selectedLangRef.current = selectedLang; }, [selectedLang]);
 
   const startListening = useCallback(() => {
     if (!voiceSupported) return;
@@ -84,7 +120,7 @@ export default function Chat() {
     if (!Ctor) return;
 
     const recognition = new Ctor();
-    recognition.lang = "en-US";
+    recognition.lang = selectedLangRef.current.code;
     recognition.continuous = false;
     recognition.interimResults = true;
 
@@ -118,7 +154,7 @@ export default function Chat() {
       // In voice mode: auto-send if we got a non-empty transcript
       if (voiceModeRef.current && transcript && sendMessageRef.current) {
         setInput("");
-        sendMessageRef.current(transcript);
+        sendMessageRef.current(transcript, selectedLangRef.current.code);
       }
     };
 
@@ -145,6 +181,17 @@ export default function Chat() {
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
+  // Close language menu when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setShowLangMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   const stripMarkdown = (text: string) =>
     text
       .replace(/#{1,6}\s+/g, "")
@@ -167,15 +214,18 @@ export default function Chat() {
     if (!window.speechSynthesis) return;
     stopSpeaking();
     const clean = stripMarkdown(text);
+    const currentLang = selectedLangRef.current;
     const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = "en-US";
+    utterance.lang = currentLang.code;
     utterance.rate = 0.95;
     utterance.pitch = 1;
 
     const voices = window.speechSynthesis.getVoices();
+    const langPrefix = currentLang.code.split("-")[0];
     const preferred = voices.find(
-      (v) => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Samantha"))
-    ) ?? voices.find((v) => v.lang.startsWith("en"));
+      (v) => v.lang === currentLang.code && (v.name.includes("Natural") || v.name.includes("Google"))
+    ) ?? voices.find((v) => v.lang === currentLang.code)
+      ?? voices.find((v) => v.lang.startsWith(langPrefix));
     if (preferred) utterance.voice = preferred;
 
     utterance.onstart = () => { setIsSpeaking(true); setSpeakingMsgId(msgId); };
@@ -220,7 +270,7 @@ export default function Chat() {
     const message = input.trim();
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "44px";
-    await sendMessage(message);
+    await sendMessage(message, selectedLang.code);
   };
 
   const handleSuggestion = (text: string) => {
@@ -264,6 +314,53 @@ export default function Chat() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Language selector */}
+          <div className="relative" ref={langMenuRef}>
+            <button
+              onClick={() => setShowLangMenu((v) => !v)}
+              title="Select response language"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-border bg-secondary/60 text-muted-foreground hover:border-primary/40 hover:text-primary transition-all"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{selectedLang.flag} {selectedLang.name}</span>
+              <span className="sm:hidden">{selectedLang.flag}</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            <AnimatePresence>
+              {showLangMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1 z-50 w-48 max-h-72 overflow-y-auto rounded-xl border border-border bg-background/95 backdrop-blur-sm shadow-xl py-1"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        setSelectedLang(lang);
+                        setShowLangMenu(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors hover:bg-secondary/60",
+                        selectedLang.code === lang.code
+                          ? "text-primary font-semibold bg-primary/5"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <span className="text-base leading-none">{lang.flag}</span>
+                      <span>{lang.name}</span>
+                      {selectedLang.code === lang.code && (
+                        <span className="ml-auto text-primary">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* Voice Mode toggle */}
           {voiceSupported && (
             <button
