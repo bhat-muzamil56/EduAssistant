@@ -1,14 +1,12 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 
-import Home from "./pages/Home";
+import AuthPage from "./pages/AuthPage";
 import Chat from "./pages/Chat";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 
@@ -21,13 +19,33 @@ const queryClient = new QueryClient({
   },
 });
 
+function AuthGuardedAuth({ initialTab }: { initialTab?: "login" | "signup" }) {
+  const { user, loading } = useAuth();
+  const [, navigate] = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user) {
+    navigate("/chat");
+    return null;
+  }
+
+  return <AuthPage initialTab={initialTab} />;
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/">{() => <AuthGuardedAuth initialTab="login" />}</Route>
+      <Route path="/login">{() => <AuthGuardedAuth initialTab="login" />}</Route>
+      <Route path="/signup">{() => <AuthGuardedAuth initialTab="signup" />}</Route>
       <Route path="/chat" component={Chat} />
-      <Route path="/login" component={Login} />
-      <Route path="/signup" component={Signup} />
       <Route path="/admin" component={AdminLogin} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route component={NotFound} />
