@@ -10,6 +10,7 @@ import AuthPage from "./pages/AuthPage";
 import Chat from "./pages/Chat";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import Home from "./pages/Home";
 
 setAuthTokenGetter(() => localStorage.getItem("user_token"));
 
@@ -45,7 +46,7 @@ function AuthGuardedAuth({ initialTab }: { initialTab?: "login" | "signup" }) {
 function Router() {
   return (
     <Switch>
-      <Route path="/">{() => <AuthGuardedAuth initialTab="login" />}</Route>
+      <Route path="/" component={Home} />
       <Route path="/login">{() => <AuthGuardedAuth initialTab="login" />}</Route>
       <Route path="/signup">{() => <AuthGuardedAuth initialTab="signup" />}</Route>
       <Route path="/chat" component={Chat} />

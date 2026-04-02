@@ -1,14 +1,231 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
+import { useState } from "react";
 import { 
   ArrowRight, Sparkles, Brain, CheckCircle2, 
   Layers, Database, Code2, Zap, ShieldCheck, 
   Clock, Maximize, Smartphone, Settings, Mic, 
-  Globe2, BarChart3, Network, Users
+  Globe2, BarChart3, Network, Users, X, ChevronRight
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
+
+// ── Pipeline step details ────────────────────────────────────────────────────
+const PIPELINE_DETAILS = [
+  {
+    step: "Question",
+    desc: "Student asks",
+    icon: "💬",
+    color: "from-blue-500 to-blue-600",
+    subtitle: "Input Capture & Validation",
+    what: "The student types a question into the chat interface. The frontend captures the raw text and sends it to the backend via a POST request to /api/chat/sessions/:id/messages with a JSON payload.",
+    how: [
+      "React state captures each keystroke in real time",
+      "On submit, the message is sent as JSON: { content: '...' }",
+      "The Express router validates the request body (non-empty, max 4000 chars)",
+      "Auth middleware confirms the user's JWT token before processing",
+      "The raw question string is passed unchanged to the next stage"
+    ],
+    code: `POST /api/chat/sessions/:id/messages\nBody: { "content": "What is machine learning?" }\nHeaders: Authorization: Bearer <jwt_token>`,
+    output: "Validated raw question string ready for preprocessing"
+  },
+  {
+    step: "Preprocessing",
+    desc: "Text cleaning",
+    icon: "🧹",
+    color: "from-violet-500 to-violet-600",
+    subtitle: "Text Normalization & Cleaning",
+    what: "The raw question goes through a series of text-cleaning transformations to strip noise and standardise the input before it can be vectorised. Messy text produces bad vectors — clean text produces good ones.",
+    how: [
+      "Convert everything to lowercase (\"Machine Learning\" → \"machine learning\")",
+      "Strip all punctuation using a regex replace: /[^\\w\\s]/g",
+      "Collapse multiple whitespace characters into a single space",
+      "Trim leading and trailing whitespace from the result",
+      "Remove common stop-words (the, is, a, an, of, for, …) that carry no semantic weight",
+      "Apply basic stemming: remove common suffixes (-ing, -ed, -s) where safe to do so"
+    ],
+    code: `function preprocess(text: string): string {\n  return text\n    .toLowerCase()\n    .replace(/[^\\w\\s]/g, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}`,
+    output: "Clean, normalised token string: \"machine learning\""
+  },
+  {
+    step: "Vectorization",
+    desc: "TF-IDF encode",
+    icon: "📐",
+    color: "from-emerald-500 to-emerald-600",
+    subtitle: "TF-IDF Numerical Encoding",
+    what: "Term Frequency–Inverse Document Frequency (TF-IDF) converts the cleaned text into a numerical vector. Each dimension of the vector corresponds to a unique word in the knowledge base vocabulary, weighted by how distinctive that word is across all documents.",
+    how: [
+      "Build a vocabulary from every word that appears in the knowledge base",
+      "TF (Term Frequency) = count of word in document ÷ total words in document",
+      "IDF (Inverse Document Frequency) = log(N / df) where N = total docs, df = docs containing the word",
+      "TF-IDF score = TF × IDF — rare-but-present words score higher",
+      "The question is encoded using the same vocabulary so dimensions align",
+      "Result is a sparse high-dimensional float vector (one value per vocab word)"
+    ],
+    code: `// Simplified TF-IDF computation\nconst tf = termCount / totalTerms;\nconst idf = Math.log(totalDocs / (docsWithTerm + 1));\nconst tfidf = tf * idf;`,
+    output: "Sparse float vector representing the question in vocabulary space"
+  },
+  {
+    step: "Matching",
+    desc: "Cosine similarity",
+    icon: "🔍",
+    color: "from-orange-500 to-orange-600",
+    subtitle: "Semantic Similarity Search",
+    what: "The question vector is compared against every pre-computed knowledge-entry vector using cosine similarity. Cosine similarity measures the angle between two vectors — a score of 1.0 means identical direction (perfect semantic match); 0.0 means orthogonal (no overlap).",
+    how: [
+      "Each knowledge base entry was vectorised at startup and cached in memory",
+      "Dot product of question vector and each knowledge vector is computed",
+      "Each is divided by the product of their magnitudes (L2 norms)",
+      "This yields a cosine score in [0, 1] for every knowledge entry",
+      "All entries are ranked by descending cosine score",
+      "The top 8 entries with the highest similarity scores are selected"
+    ],
+    code: `function cosineSimilarity(a: number[], b: number[]): number {\n  const dot = a.reduce((s, v, i) => s + v * b[i], 0);\n  const normA = Math.sqrt(a.reduce((s, v) => s + v * v, 0));\n  const normB = Math.sqrt(b.reduce((s, v) => s + v * v, 0));\n  return dot / (normA * normB);\n}`,
+    output: "Ranked list of top-8 knowledge entries with similarity scores"
+  },
+  {
+    step: "Retrieval",
+    desc: "Find answer",
+    icon: "📚",
+    color: "from-cyan-500 to-cyan-600",
+    subtitle: "Knowledge Base Retrieval",
+    what: "The top-8 ranked knowledge entries are fetched from PostgreSQL and their content is assembled into a structured context block. This is the \"Retrieval\" half of the RAG (Retrieval-Augmented Generation) pipeline — grounding the AI in real curated knowledge.",
+    how: [
+      "Entry IDs from the ranking step are used in a WHERE id IN (...) SQL query",
+      "Each entry contains: question, answer, category, and an optional explanation",
+      "Entries are ordered by cosine score (most relevant first)",
+      "A context string is built: entries are numbered and concatenated",
+      "The full chat message history for this session is also fetched for context",
+      "Both context and history are packaged into the AI prompt template"
+    ],
+    code: `SELECT id, question, answer, category\nFROM knowledge_base\nWHERE id = ANY($1)\nORDER BY array_position($1, id);`,
+    output: "Structured context block with top-8 curated knowledge entries"
+  },
+  {
+    step: "Processing",
+    desc: "Score confidence",
+    icon: "⚙️",
+    color: "from-rose-500 to-rose-600",
+    subtitle: "Dual-Model AI Processing",
+    what: "This is the most compute-intensive stage. The retrieved context is fed into a two-model pipeline: Gemini drafts an intuitive explanation first, then GPT synthesises the final structured answer. The top cosine score is used as a confidence indicator.",
+    how: [
+      "Confidence score = highest cosine similarity from the Matching step (0–100%)",
+      "Gemini (gemini-2.5-pro) receives the context + question and drafts an intuitive explanation",
+      "GPT (gpt-4o) receives Gemini's draft + original context and synthesises the final answer",
+      "GPT is instructed to produce a ChatGPT-style structured response with sections, emojis, real-world examples",
+      "The AI prompt explicitly includes the confidence score so the model can caveat low-confidence answers",
+      "Both model calls happen server-side using Replit AI Integration proxies (no API keys exposed to client)"
+    ],
+    code: `// Stage 1: Gemini draft\nconst draft = await gemini.generate({ prompt: geminiPrompt });\n// Stage 2: GPT synthesis\nconst final = await openai.chat({ messages: gptMessages(draft) });`,
+    output: "Final structured AI answer with confidence score attached"
+  },
+  {
+    step: "Response",
+    desc: "AI replies",
+    icon: "✨",
+    color: "from-pink-500 to-pink-600",
+    subtitle: "Response Delivery & Persistence",
+    what: "The final AI-generated answer is saved to PostgreSQL (so chat history is preserved across sessions) and immediately streamed back to the client. The frontend renders it with animated message bubbles and typed formatting.",
+    how: [
+      "The AI response string is saved to the chat_messages table with role='assistant'",
+      "The session's updated_at timestamp is refreshed in chat_sessions",
+      "The full response JSON is returned: { id, content, role, createdAt, confidence }",
+      "React Query invalidates the messages cache so the UI re-fetches and displays the new message",
+      "Framer Motion animates the message bubble fading in from below",
+      "The confidence score is optionally displayed as a badge on the message card"
+    ],
+    code: `INSERT INTO chat_messages (session_id, role, content)\nVALUES ($1, 'assistant', $2)\nRETURNING id, content, role, created_at;`,
+    output: "Animated AI response visible in the chat, saved to the database"
+  }
+];
+
+// ── Pipeline Step Detail Modal ───────────────────────────────────────────────
+function PipelineModal({ stage, onClose }: { stage: typeof PIPELINE_DETAILS[0]; onClose: () => void }) {
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 24 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="relative bg-background rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto border border-border"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header gradient strip */}
+          <div className={`bg-gradient-to-r ${stage.color} p-6 rounded-t-2xl`}>
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-4xl mb-2">{stage.icon}</div>
+            <div className="text-white/70 text-xs font-bold uppercase tracking-widest mb-1">{stage.subtitle}</div>
+            <h2 className="text-2xl font-bold text-white">{stage.step}</h2>
+            <p className="text-white/80 text-sm mt-1">{stage.desc}</p>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* What happens */}
+            <div>
+              <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                What happens here
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{stage.what}</p>
+            </div>
+
+            {/* Step-by-step */}
+            <div>
+              <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                Step-by-step breakdown
+              </h3>
+              <ol className="space-y-2">
+                {stage.how.map((item, i) => (
+                  <li key={i} className="flex gap-3 text-sm text-muted-foreground">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="leading-relaxed">{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Code snippet */}
+            <div>
+              <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-primary" />
+                Backend code (simplified)
+              </h3>
+              <pre className="bg-muted rounded-xl p-4 text-xs font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap leading-relaxed border border-border">
+                {stage.code}
+              </pre>
+            </div>
+
+            {/* Output */}
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex gap-3 items-start">
+              <ChevronRight className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <div className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Output to next stage</div>
+                <p className="text-sm text-foreground">{stage.output}</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 // Stagger variants for animations
 const containerVariants = {
@@ -26,6 +243,7 @@ const itemVariants = {
 
 export default function Home() {
   const { user } = useAuth();
+  const [selectedStage, setSelectedStage] = useState<typeof PIPELINE_DETAILS[0] | null>(null);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -241,27 +459,31 @@ export default function Home() {
       {/* HOW IT WORKS / PIPELINE */}
       <section id="how-it-works" className="py-24 bg-primary text-primary-foreground overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-6">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
             <p className="text-primary-foreground/80 text-lg">A sophisticated AI pipeline that matches student queries to curated knowledge.</p>
           </div>
+          <p className="text-center text-primary-foreground/50 text-sm mb-10">
+            👆 Click any step to see exactly what happens in the backend
+          </p>
 
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-2 lg:gap-4 overflow-x-auto pb-8">
-            {[
-              { step: "Question", desc: "Student asks" },
-              { step: "Preprocessing", desc: "Text cleaning" },
-              { step: "Vectorization", desc: "TF-IDF encode" },
-              { step: "Matching", desc: "Cosine similarity" },
-              { step: "Retrieval", desc: "Find answer" },
-              { step: "Processing", desc: "Score confidence" },
-              { step: "Response", desc: "AI replies" }
-            ].map((stage, i, arr) => (
+            {PIPELINE_DETAILS.map((stage, i, arr) => (
               <div key={i} className="flex flex-col md:flex-row items-center">
-                <div className="bg-primary-foreground/10 border border-primary-foreground/20 backdrop-blur-sm p-4 rounded-xl w-40 text-center relative">
-                  <div className="text-xs font-bold text-primary-foreground/60 uppercase tracking-wider mb-1">Step {i+1}</div>
-                  <div className="font-bold mb-1">{stage.step}</div>
-                  <div className="text-xs text-primary-foreground/80">{stage.desc}</div>
-                </div>
+                <motion.button
+                  whileHover={{ scale: 1.06, y: -4 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setSelectedStage(stage)}
+                  className="bg-primary-foreground/10 hover:bg-primary-foreground/20 border border-primary-foreground/20 hover:border-primary-foreground/50 backdrop-blur-sm p-4 rounded-xl w-40 text-center cursor-pointer transition-colors group"
+                >
+                  <div className="text-2xl mb-1">{stage.icon}</div>
+                  <div className="text-xs font-bold text-primary-foreground/60 uppercase tracking-wider mb-1">Step {i + 1}</div>
+                  <div className="font-bold mb-1 group-hover:text-white">{stage.step}</div>
+                  <div className="text-xs text-primary-foreground/70">{stage.desc}</div>
+                  <div className="mt-2 text-[10px] text-primary-foreground/40 group-hover:text-primary-foreground/70 transition-colors">
+                    tap to explore →
+                  </div>
+                </motion.button>
                 {i < arr.length - 1 && (
                   <ArrowRight className="w-6 h-6 my-4 md:my-0 md:mx-2 lg:mx-4 text-primary-foreground/50 rotate-90 md:rotate-0 shrink-0" />
                 )}
@@ -270,6 +492,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Pipeline detail modal */}
+      {selectedStage && (
+        <PipelineModal stage={selectedStage} onClose={() => setSelectedStage(null)} />
+      )}
 
       {/* TECH STACK */}
       <section className="py-24">
