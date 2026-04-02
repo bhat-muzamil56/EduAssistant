@@ -6,7 +6,8 @@ import {
   knowledgeBaseTable,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { findBestMatch } from "../lib/tfidf.js";
+import { findTopMatches } from "../lib/tfidf.js";
+import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   SendChatMessageBody,
   GetChatMessagesParams,
@@ -56,16 +57,70 @@ router.post("/sessions/:sessionId/messages", async (req, res) => {
   });
 
   const knowledge = await db.select().from(knowledgeBaseTable);
-  const match = findBestMatch(content, knowledge);
+  const topMatches = findTopMatches(content, knowledge, 5);
+
+  const topScore = topMatches[0]?.score ?? 0;
+  const confidence = Math.round(topScore * 100) / 100;
 
   let responseContent: string;
-  let confidence: number | null = null;
 
-  if (match && match.score > 0.05) {
-    responseContent = match.item.answer;
-    confidence = Math.round(match.score * 100) / 100;
-  } else {
+  if (topMatches.length > 0 && topScore > 0.02) {
+    const contextEntries = topMatches
+      .map(
+        (m, i) =>
+          `[${i + 1}] Q: ${m.item.question}\n    A: ${m.item.answer}`
+      )
+      .join("\n\n");
+
+    const systemPrompt = `You are an AI-powered education assistant specializing in Computer Science and Artificial Intelligence. You help students understand concepts clearly and thoroughly.
+
+You have been provided with the most relevant knowledge base entries for the student's question. Use ONLY this context to answer. Do not make up information outside of what is provided.
+
+If the context is sufficient, give a clear, helpful, and educational answer. If it is not sufficient, say so honestly.
+
+Relevant Knowledge Base Context:
+${contextEntries}`;
+
+    const previousMessages = await db
+      .select()
+      .from(chatMessagesTable)
+      .where(eq(chatMessagesTable.sessionId, sessionId))
+      .orderBy(chatMessagesTable.createdAt);
+
+    const chatHistory = previousMessages.slice(-8).map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 8192,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...chatHistory,
+        { role: "user", content },
+      ],
+    });
+
     responseContent =
+      completion.choices[0]?.message?.content ??
+      "I'm sorry, I couldn't generate a response. Please try again.";
+  } else {
+    const fallbackSystemPrompt = `You are an AI-powered education assistant specializing in Computer Science and Artificial Intelligence. You help students understand concepts clearly and thoroughly.
+
+The student's question does not closely match any entries in the knowledge base. Politely let them know, and suggest they try rephrasing or asking about CS/AI topics such as algorithms, data structures, machine learning, or programming concepts.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 8192,
+      messages: [
+        { role: "system", content: fallbackSystemPrompt },
+        { role: "user", content },
+      ],
+    });
+
+    responseContent =
+      completion.choices[0]?.message?.content ??
       "I'm sorry, I couldn't find a relevant answer in the knowledge base for your question. Please try rephrasing or ask about a different topic from the curriculum.";
   }
 

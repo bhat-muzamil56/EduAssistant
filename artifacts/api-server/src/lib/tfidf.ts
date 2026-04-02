@@ -80,7 +80,16 @@ export function findBestMatch(
   query: string,
   knowledgeBase: KnowledgeItem[]
 ): MatchResult | null {
-  if (knowledgeBase.length === 0) return null;
+  const results = findTopMatches(query, knowledgeBase, 1);
+  return results.length > 0 ? results[0] : null;
+}
+
+export function findTopMatches(
+  query: string,
+  knowledgeBase: KnowledgeItem[],
+  topN: number = 5
+): MatchResult[] {
+  if (knowledgeBase.length === 0) return [];
 
   const queryTokens = tokenize(query);
   const docTokens = knowledgeBase.map((item) =>
@@ -91,18 +100,13 @@ export function findBestMatch(
 
   const queryVec = tfidfVector(queryTokens, idf);
 
-  let bestScore = -1;
-  let bestItem: KnowledgeItem | null = null;
+  const scored: MatchResult[] = knowledgeBase.map((item, i) => ({
+    item,
+    score: cosineSimilarity(queryVec, tfidfVector(docTokens[i], idf)),
+  }));
 
-  for (let i = 0; i < knowledgeBase.length; i++) {
-    const docVec = tfidfVector(docTokens[i], idf);
-    const score = cosineSimilarity(queryVec, docVec);
-    if (score > bestScore) {
-      bestScore = score;
-      bestItem = knowledgeBase[i];
-    }
-  }
-
-  if (!bestItem) return null;
-  return { item: bestItem, score: bestScore };
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN)
+    .filter((r) => r.score > 0);
 }
