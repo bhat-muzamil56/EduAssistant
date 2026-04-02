@@ -4,8 +4,8 @@ import { useState } from "react";
 import { 
   ArrowRight, Sparkles, Brain, CheckCircle2, 
   Layers, Database, Code2, Zap, ShieldCheck, 
-  Clock, Maximize, Smartphone, Settings, Mic, 
-  Globe2, BarChart3, Network, Users, X, ChevronRight
+  Clock, Maximize, Smartphone, Settings,
+  BarChart3, Network, X, ChevronRight
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -560,26 +560,51 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FUTURE ENHANCEMENTS */}
+      {/* PLATFORM CAPABILITIES */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Future Enhancements</h2>
-            <p className="text-muted-foreground">Planned features to expand capabilities.</p>
+            <h2 className="text-3xl font-bold mb-4">Platform Capabilities</h2>
+            <p className="text-muted-foreground">Everything that's live and working in EduAssistant right now.</p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
-              { icon: Mic, label: "Voice Interaction" },
-              { icon: Globe2, label: "Multilingual Support" },
-              { icon: BarChart3, label: "Analytics Dashboard" },
-              { icon: Network, label: "Deep Learning Model" },
-              { icon: Layers, label: "LMS Integration" },
-              { icon: Users, label: "Collaborative Features" }
+              {
+                icon: Brain,
+                label: "Dual AI Engine",
+                desc: "Gemini drafts an intuitive explanation, GPT-4o synthesises the final structured answer — two models working together on every question."
+              },
+              {
+                icon: Database,
+                label: "Curated Knowledge Base",
+                desc: "A hand-curated CS & AI knowledge base powers the retrieval layer, ensuring every answer is grounded in verified educational content."
+              },
+              {
+                icon: ShieldCheck,
+                label: "Secure Authentication",
+                desc: "Full login and sign-up with hashed passwords and JWT session tokens. Every chat endpoint is protected — only you can see your history."
+              },
+              {
+                icon: Clock,
+                label: "Persistent Chat History",
+                desc: "Conversations are saved to PostgreSQL and linked to your account. Close the browser, come back days later — your history is still there."
+              },
+              {
+                icon: BarChart3,
+                label: "Admin Dashboard",
+                desc: "A protected admin panel lets administrators view all users, monitor active chat sessions, and oversee platform activity in real time."
+              },
+              {
+                icon: Network,
+                label: "TF-IDF Retrieval",
+                desc: "Cosine similarity across TF-IDF vectors picks the top-8 most relevant knowledge entries for every query before the AI ever writes a word."
+              }
             ].map((item, i) => (
-              <div key={i} className="p-6 text-center border border-border rounded-2xl hover:border-primary hover:shadow-md transition-all">
-                <item.icon className="w-8 h-8 mx-auto text-primary mb-3" />
-                <h4 className="font-semibold">{item.label}</h4>
+              <div key={i} className="p-6 border border-border rounded-2xl hover:border-primary hover:shadow-md transition-all group">
+                <item.icon className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                <h4 className="font-semibold text-foreground mb-2">{item.label}</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
