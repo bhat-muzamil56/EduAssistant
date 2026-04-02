@@ -16,6 +16,22 @@ import {
 
 const router: IRouter = Router();
 
+const SYSTEM_PROMPT = `You are EduAssistant, an AI-powered education assistant specializing in Computer Science and Artificial Intelligence. Your role is to help students learn clearly, confidently, and step by step.
+
+## How you must always respond:
+
+1. **Always give a helpful answer.** Never say "I don't have enough context" or ask the student to rephrase. If the question is broad (e.g. "algorithm"), cover the topic comprehensively.
+2. **Structure your answers clearly** using numbered steps, bullet points, or sections where appropriate so the student can follow easily.
+3. **Use the knowledge base context** provided below as your primary source of truth. You may also draw on your broader CS/AI knowledge to fill gaps or provide examples.
+4. **Be educational and thorough.** Explain concepts from the ground up — define terms, give examples, and relate ideas where helpful.
+5. **Keep a friendly, encouraging tone.** You are a patient tutor, not a search engine.
+
+## Response format:
+- For concept questions: Define → Explain → Give examples → Summarize
+- For broad topics (e.g. "algorithms", "machine learning"): Break into sub-topics with numbered sections
+- For how-to questions: Numbered step-by-step
+- Always end with a brief encouraging sentence or offer to go deeper on any point`;
+
 router.post("/sessions", async (req, res) => {
   const [session] = await db
     .insert(chatSessionsTable)
@@ -57,72 +73,48 @@ router.post("/sessions/:sessionId/messages", async (req, res) => {
   });
 
   const knowledge = await db.select().from(knowledgeBaseTable);
-  const topMatches = findTopMatches(content, knowledge, 5);
+  const topMatches = findTopMatches(content, knowledge, 8);
 
   const topScore = topMatches[0]?.score ?? 0;
   const confidence = Math.round(topScore * 100) / 100;
 
-  let responseContent: string;
+  const previousMessages = await db
+    .select()
+    .from(chatMessagesTable)
+    .where(eq(chatMessagesTable.sessionId, sessionId))
+    .orderBy(chatMessagesTable.createdAt);
 
-  if (topMatches.length > 0 && topScore > 0.02) {
+  const chatHistory = previousMessages.slice(-8).map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
+
+  let fullSystemPrompt = SYSTEM_PROMPT;
+
+  if (topMatches.length > 0) {
     const contextEntries = topMatches
       .map(
         (m, i) =>
-          `[${i + 1}] Q: ${m.item.question}\n    A: ${m.item.answer}`
+          `[${i + 1}] Topic: ${m.item.category ?? "General"}\n    Q: ${m.item.question}\n    A: ${m.item.answer}`
       )
       .join("\n\n");
 
-    const systemPrompt = `You are an AI-powered education assistant specializing in Computer Science and Artificial Intelligence. You help students understand concepts clearly and thoroughly.
-
-You have been provided with the most relevant knowledge base entries for the student's question. Use ONLY this context to answer. Do not make up information outside of what is provided.
-
-If the context is sufficient, give a clear, helpful, and educational answer. If it is not sufficient, say so honestly.
-
-Relevant Knowledge Base Context:
-${contextEntries}`;
-
-    const previousMessages = await db
-      .select()
-      .from(chatMessagesTable)
-      .where(eq(chatMessagesTable.sessionId, sessionId))
-      .orderBy(chatMessagesTable.createdAt);
-
-    const chatHistory = previousMessages.slice(-8).map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
-      max_completion_tokens: 8192,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...chatHistory,
-        { role: "user", content },
-      ],
-    });
-
-    responseContent =
-      completion.choices[0]?.message?.content ??
-      "I'm sorry, I couldn't generate a response. Please try again.";
-  } else {
-    const fallbackSystemPrompt = `You are an AI-powered education assistant specializing in Computer Science and Artificial Intelligence. You help students understand concepts clearly and thoroughly.
-
-The student's question does not closely match any entries in the knowledge base. Politely let them know, and suggest they try rephrasing or asking about CS/AI topics such as algorithms, data structures, machine learning, or programming concepts.`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
-      max_completion_tokens: 8192,
-      messages: [
-        { role: "system", content: fallbackSystemPrompt },
-        { role: "user", content },
-      ],
-    });
-
-    responseContent =
-      completion.choices[0]?.message?.content ??
-      "I'm sorry, I couldn't find a relevant answer in the knowledge base for your question. Please try rephrasing or ask about a different topic from the curriculum.";
+    fullSystemPrompt += `\n\n## Relevant Knowledge Base Entries (use these as your primary source):\n\n${contextEntries}`;
   }
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    max_completion_tokens: 8192,
+    messages: [
+      { role: "system", content: fullSystemPrompt },
+      ...chatHistory,
+      { role: "user", content },
+    ],
+  });
+
+  const responseContent =
+    completion.choices[0]?.message?.content ??
+    "I'm sorry, I couldn't generate a response. Please try again.";
 
   const [assistantMsg] = await db
     .insert(chatMessagesTable)
