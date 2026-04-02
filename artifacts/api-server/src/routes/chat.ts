@@ -8,6 +8,7 @@ import {
 import { eq } from "drizzle-orm";
 import { findTopMatches } from "../lib/tfidf.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { ai } from "@workspace/integrations-gemini-ai";
 import {
   SendChatMessageBody,
   GetChatMessagesParams,
@@ -16,21 +17,79 @@ import {
 
 const router: IRouter = Router();
 
-const SYSTEM_PROMPT = `You are EduAssistant, an AI-powered education assistant specializing in Computer Science and Artificial Intelligence. Your role is to help students learn clearly, confidently, and step by step.
+async function getGeminiPerspective(
+  question: string,
+  context: string
+): Promise<string> {
+  try {
+    const prompt = `You are a CS/AI tutor. Give a clear, friendly, intuitive explanation of the following question in 2-3 short paragraphs. Use simple language, relatable analogies, and a real-world example. Do not use heavy markdown — keep it conversational.
 
-## How you must always respond:
+${context ? `Relevant context:\n${context}\n\n` : ""}Question: ${question}`;
 
-1. **Always give a helpful answer.** Never say "I don't have enough context" or ask the student to rephrase. If the question is broad (e.g. "algorithm"), cover the topic comprehensively.
-2. **Structure your answers clearly** using numbered steps, bullet points, or sections where appropriate so the student can follow easily.
-3. **Use the knowledge base context** provided below as your primary source of truth. You may also draw on your broader CS/AI knowledge to fill gaps or provide examples.
-4. **Be educational and thorough.** Explain concepts from the ground up — define terms, give examples, and relate ideas where helpful.
-5. **Keep a friendly, encouraging tone.** You are a patient tutor, not a search engine.
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 1024 },
+    });
+    return response.text ?? "";
+  } catch {
+    return "";
+  }
+}
 
-## Response format:
-- For concept questions: Define → Explain → Give examples → Summarize
-- For broad topics (e.g. "algorithms", "machine learning"): Break into sub-topics with numbered sections
-- For how-to questions: Numbered step-by-step
-- Always end with a brief encouraging sentence or offer to go deeper on any point`;
+async function getFinalAnswer(
+  question: string,
+  knowledgeContext: string,
+  geminiInsight: string,
+  chatHistory: { role: "user" | "assistant"; content: string }[]
+): Promise<string> {
+  const systemPrompt = `You are EduAssistant — an AI education tutor for Computer Science and Artificial Intelligence, powered by both OpenAI GPT and Google Gemini working together.
+
+## Your personality:
+- Friendly, patient, and encouraging — like a great university tutor
+- Always give complete, easy-to-understand answers — never say "I don't know" or ask the student to rephrase
+- Use clear structure: numbered steps, bullet points, bold headings
+- Include real-world examples and analogies to make concepts click
+- End every answer with an encouraging line or offer to explain further
+
+## Your answer format (adapt based on question type):
+**For concept questions:**
+1. 🔍 **What is it?** — simple one-line definition
+2. 📖 **Explanation** — clear breakdown
+3. 💡 **Real-world example** — relatable analogy or use case
+4. 🔗 **How it connects** — related concepts
+5. ✅ **Summary** — 1-2 sentence recap
+
+**For broad topics** (e.g. "algorithms", "machine learning"):
+- Break into numbered sub-sections, each with a heading
+- Cover the main branches/types with brief explanations
+
+**For how-to questions:**
+- Numbered step-by-step with clear actions
+
+## Sources available to you:
+You have TWO powerful AI perspectives to draw from:
+
+${knowledgeContext ? `📚 **Knowledge Base (curated CS/AI materials):**\n${knowledgeContext}\n` : ""}
+${geminiInsight ? `🤖 **Google Gemini's perspective on this question:**\n${geminiInsight}\n` : ""}
+
+Synthesize both the knowledge base and Gemini's insights into one perfect, comprehensive answer. Make it feel like ChatGPT at its best — clear, structured, and genuinely helpful.`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    max_completion_tokens: 8192,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...chatHistory,
+      { role: "user", content: question },
+    ],
+  });
+
+  return (
+    completion.choices[0]?.message?.content ??
+    "I'm sorry, I couldn't generate a response. Please try again."
+  );
+}
 
 router.post("/sessions", async (req, res) => {
   const [session] = await db
@@ -72,49 +131,42 @@ router.post("/sessions/:sessionId/messages", async (req, res) => {
     content,
   });
 
-  const knowledge = await db.select().from(knowledgeBaseTable);
-  const topMatches = findTopMatches(content, knowledge, 8);
+  const [knowledge, previousMessages] = await Promise.all([
+    db.select().from(knowledgeBaseTable),
+    db
+      .select()
+      .from(chatMessagesTable)
+      .where(eq(chatMessagesTable.sessionId, sessionId))
+      .orderBy(chatMessagesTable.createdAt),
+  ]);
 
+  const topMatches = findTopMatches(content, knowledge, 8);
   const topScore = topMatches[0]?.score ?? 0;
   const confidence = Math.round(topScore * 100) / 100;
 
-  const previousMessages = await db
-    .select()
-    .from(chatMessagesTable)
-    .where(eq(chatMessagesTable.sessionId, sessionId))
-    .orderBy(chatMessagesTable.createdAt);
+  const knowledgeContext =
+    topMatches.length > 0
+      ? topMatches
+          .map(
+            (m, i) =>
+              `[${i + 1}] (${m.item.category ?? "General"}) Q: ${m.item.question}\nA: ${m.item.answer}`
+          )
+          .join("\n\n")
+      : "";
 
   const chatHistory = previousMessages.slice(-8).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
 
-  let fullSystemPrompt = SYSTEM_PROMPT;
+  const geminiInsight = await getGeminiPerspective(content, knowledgeContext);
 
-  if (topMatches.length > 0) {
-    const contextEntries = topMatches
-      .map(
-        (m, i) =>
-          `[${i + 1}] Topic: ${m.item.category ?? "General"}\n    Q: ${m.item.question}\n    A: ${m.item.answer}`
-      )
-      .join("\n\n");
-
-    fullSystemPrompt += `\n\n## Relevant Knowledge Base Entries (use these as your primary source):\n\n${contextEntries}`;
-  }
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-5.2",
-    max_completion_tokens: 8192,
-    messages: [
-      { role: "system", content: fullSystemPrompt },
-      ...chatHistory,
-      { role: "user", content },
-    ],
-  });
-
-  const responseContent =
-    completion.choices[0]?.message?.content ??
-    "I'm sorry, I couldn't generate a response. Please try again.";
+  const responseContent = await getFinalAnswer(
+    content,
+    knowledgeContext,
+    geminiInsight,
+    chatHistory
+  );
 
   const [assistantMsg] = await db
     .insert(chatMessagesTable)
