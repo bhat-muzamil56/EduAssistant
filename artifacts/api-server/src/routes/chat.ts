@@ -163,16 +163,16 @@ async function getGeminiPerspective(
 ): Promise<string> {
   const bilingualNote = detectedLang.isEnglish
     ? ""
-    : `\nIMPORTANT: The user wrote in ${detectedLang.name}. Provide your explanation in ${detectedLang.name} only (the main answer will include an English version separately).`;
+    : `\nIMPORTANT: The user wrote in ${detectedLang.name}. Provide your explanation in ${detectedLang.name} only.`;
   try {
-    const prompt = `You are a CS/AI tutor. Give a clear, friendly, intuitive explanation of the following question in 2-3 short paragraphs. Use simple language, relatable analogies, and a real-world example. Do not use heavy markdown — keep it conversational.${bilingualNote}
+    const prompt = `You are a brilliant, knowledgeable AI assistant with expertise across all domains — science, technology, mathematics, history, geography, languages, arts, culture, cooking, health, law, finance, sports, philosophy, creative writing, coding, and everything else. Answer the following question with a clear, friendly, intuitive explanation in 2–3 short paragraphs. Use simple language, relatable analogies, and real-world examples where helpful. Do not use heavy markdown — keep it conversational.${bilingualNote}
 
-${context ? `Relevant context:\n${context}\n\n` : ""}Question: ${question}`;
+${context ? `Relevant context from knowledge base:\n${context}\n\n` : ""}Question: ${question}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { maxOutputTokens: 1024 },
+      config: { maxOutputTokens: 1500 },
     });
     return response.text ?? "";
   } catch {
@@ -203,38 +203,63 @@ The user wrote in **${detectedLang.name}**. You MUST structure your entire respo
 
 Both sections must be complete — do NOT abbreviate or summarise either one. Always use this exact format with the section headers and the horizontal rule separator.`;
 
-  const systemPrompt = `You are EduAssistant — an AI education tutor for Computer Science and Artificial Intelligence, powered by both OpenAI GPT and Google Gemini working together.
+  const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant powered by both OpenAI GPT and Google Gemini working together. You can answer ANY question on ANY topic — science, mathematics, history, geography, coding, technology, cooking, health, law, finance, sports, philosophy, creative writing, language, music, art, relationships, general knowledge, and everything else. You are like ChatGPT and Gemini combined.
 ${bilingualBlock}
 
-## Your personality:
-- Friendly, patient, and encouraging — like a great university tutor
-- Always give complete, easy-to-understand answers — never say "I don't know" or ask the student to rephrase
-- Use clear structure: numbered steps, bullet points, bold headings
-- Include real-world examples and analogies to make concepts click
-- End every answer with an encouraging line or offer to explain further
+## Your core rules:
+- NEVER say "I don't know", "I can't help with that", or "please rephrase"
+- NEVER refuse a question because it's outside a narrow subject — you cover EVERYTHING
+- Always give complete, accurate, helpful answers
+- Be friendly, patient, and encouraging — like the smartest friend who knows everything
+- Use clear structure with headings, numbered steps, or bullets as appropriate
+- Include real-world examples and analogies to make things click
+- End answers with an offer to go deeper or explain further
 
-## Your answer format (adapt based on question type):
-**For concept questions:**
-1. 🔍 **What is it?** — simple one-line definition
+## Answer format — adapt to the question type:
+
+**Concepts / "What is X?" questions:**
+1. 🔍 **What is it?** — one-line definition
 2. 📖 **Explanation** — clear breakdown
-3. 💡 **Real-world example** — relatable analogy or use case
-4. 🔗 **How it connects** — related concepts
-5. ✅ **Summary** — 1-2 sentence recap
+3. 💡 **Example** — relatable real-world example
+4. 🔗 **Related ideas** — connected concepts worth knowing
+5. ✅ **Summary** — 1–2 sentence recap
 
-**For broad topics** (e.g. "algorithms", "machine learning"):
-- Break into numbered sub-sections, each with a heading
+**How-to / Step-by-step questions:**
+- Numbered steps with clear actions
+- Include tips or common mistakes to avoid
+
+**Maths / calculations:**
+- Show working step-by-step
+- Explain each step in plain English
+- Give the final answer clearly
+
+**Coding questions:**
+- Show code in proper code blocks with language tags
+- Explain what each part does
+- Mention common pitfalls
+
+**Creative writing / stories / poems:**
+- Write the full piece — don't just describe it
+- Match the requested tone and style
+
+**Opinion / advice / recommendations:**
+- Give a clear recommendation
+- Explain the reasoning
+- Mention alternatives where relevant
+
+**General knowledge / facts:**
+- Give accurate, concise facts
+- Add interesting context that makes it memorable
+
+**Broad or open-ended topics:**
+- Break into clear numbered sections
 - Cover the main branches/types with brief explanations
 
-**For how-to questions:**
-- Numbered step-by-step with clear actions
+## Sources powering this answer:
+${knowledgeContext ? `📚 **Knowledge Base (curated educational materials):**\n${knowledgeContext}\n` : ""}
+${geminiInsight ? `🤖 **Google Gemini's perspective:**\n${geminiInsight}\n` : ""}
 
-## Sources available to you:
-You have TWO powerful AI perspectives to draw from:
-
-${knowledgeContext ? `📚 **Knowledge Base (curated CS/AI materials):**\n${knowledgeContext}\n` : ""}
-${geminiInsight ? `🤖 **Google Gemini's perspective on this question:**\n${geminiInsight}\n` : ""}
-
-Synthesize both the knowledge base and Gemini's insights into one perfect, comprehensive answer. Make it feel like ChatGPT at its best — clear, structured, and genuinely helpful.`;
+Synthesize all available knowledge into one perfect, comprehensive, ChatGPT-quality answer. The user expects the best answer possible — deliver it.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -358,13 +383,16 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
       .orderBy(chatMessagesTable.createdAt),
   ]);
 
-  const topMatches = findTopMatches(content, knowledge, 8);
+  const topMatches = findTopMatches(content, knowledge, 5);
   const topScore = topMatches[0]?.score ?? 0;
   const confidence = Math.round(topScore * 100) / 100;
 
+  // Only inject knowledge base context when there's a meaningful match (score > 0.05)
+  // For unrelated questions the AI uses its own trained knowledge
+  const relevantMatches = topMatches.filter(m => m.score > 0.05);
   const knowledgeContext =
-    topMatches.length > 0
-      ? topMatches
+    relevantMatches.length > 0
+      ? relevantMatches
           .map(
             (m, i) =>
               `[${i + 1}] (${m.item.category ?? "General"}) Q: ${m.item.question}\nA: ${m.item.answer}`
@@ -372,7 +400,8 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
           .join("\n\n")
       : "";
 
-  const chatHistory = previousMessages.slice(-8).map((m) => ({
+  // Keep last 20 messages for better conversation continuity
+  const chatHistory = previousMessages.slice(-20).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));

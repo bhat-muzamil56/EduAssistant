@@ -21,6 +21,12 @@ import {
   VolumeX,
   Radio,
   Globe,
+  Calculator,
+  FlaskConical,
+  Utensils,
+  Landmark,
+  PenLine,
+  Heart,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -173,12 +179,14 @@ const LANGUAGES = [
 ];
 
 const SUGGESTIONS = [
-  { icon: Brain, label: "What is machine learning?", category: "AI" },
-  { icon: Code2, label: "Explain algorithms with examples", category: "CS" },
-  { icon: BookOpen, label: "How does deep learning work?", category: "AI" },
-  { icon: Lightbulb, label: "What is a neural network?", category: "AI" },
-  { icon: Code2, label: "Difference between stack and queue", category: "DS" },
-  { icon: Brain, label: "What is natural language processing?", category: "AI" },
+  { icon: Brain,        label: "What is machine learning?",             category: "AI" },
+  { icon: Calculator,   label: "Solve: What is 25% of 480?",            category: "Math" },
+  { icon: FlaskConical, label: "How does photosynthesis work?",          category: "Science" },
+  { icon: Code2,        label: "Write a Python function to sort a list", category: "Code" },
+  { icon: Landmark,     label: "Who was the first person on the Moon?",  category: "History" },
+  { icon: Utensils,     label: "How do I make a simple pasta sauce?",    category: "Cooking" },
+  { icon: PenLine,      label: "Write a short poem about the ocean",     category: "Creative" },
+  { icon: Heart,        label: "What are 5 habits for better sleep?",    category: "Health" },
 ];
 
 function getGreeting() {
@@ -603,7 +611,7 @@ export default function Chat() {
                 {getGreeting()}, {user.username}! 👋
               </h2>
               <p className="text-muted-foreground text-base max-w-md mx-auto leading-relaxed">
-                I'm <span className="text-primary font-semibold">EduAssistant</span> — your AI-powered tutor for Computer Science & Artificial Intelligence. What would you like to learn today?
+                I'm <span className="text-primary font-semibold">EduAssistant</span> — your AI assistant powered by GPT + Gemini. Ask me <em>anything</em> — science, maths, history, coding, cooking, creative writing, and more.
               </p>
             </motion.div>
 
@@ -620,7 +628,7 @@ export default function Chat() {
                 </div>
                 <div>
                   <p className="text-sm text-foreground leading-relaxed">
-                    Hi there! I'm powered by both <strong>OpenAI GPT</strong> and <strong>Google Gemini</strong> working together. I can explain any CS or AI concept clearly — from beginner basics to advanced topics. Just ask me anything! 🚀
+                    Hi! I'm powered by <strong>OpenAI GPT</strong> and <strong>Google Gemini</strong> working together — like having both in one place. I can answer <strong>any question</strong> on any topic: science, maths, history, coding, cooking, health, creative writing, or anything else on your mind. Just ask! 🚀
                   </p>
                 </div>
               </div>
@@ -850,7 +858,7 @@ export default function Chat() {
                   : voiceInputPending
                   ? "Voice captured — press ↵ to send (AI will speak back 🔊)"
                   : isReady
-                  ? "Message EduAssistant… or tap 🎤 to speak"
+                  ? "Ask anything — science, maths, history, coding, cooking… or tap 🎤 to speak"
                   : "Connecting…"
               }
               disabled={!isReady || isSending}
