@@ -1,62 +1,56 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useCreateChatSession, 
-  useGetChatMessages, 
+import {
+  useGetChatMessages,
   useSendChatMessage,
-  getGetChatMessagesQueryKey
+  getGetChatMessagesQueryKey,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
+const SESSION_KEY = "chatSessionId";
+
+async function createSession(): Promise<string> {
+  const res = await fetch("/api/chat/sessions", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to create session");
+  const data = await res.json();
+  return data.id as string;
+}
+
 export function useChat() {
-  const [sessionId, setSessionId] = useState<string | null>(() => sessionStorage.getItem("chatSessionId"));
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(() =>
+    sessionStorage.getItem(SESSION_KEY)
+  );
+  const [isInitializing, setIsInitializing] = useState(!sessionId);
+  const initStarted = useRef(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const createSession = useCreateChatSession();
-
   useEffect(() => {
-    let mounted = true;
-    
-    async function initSession() {
-      if (!sessionId) {
-        try {
-          const res = await createSession.mutateAsync();
-          if (mounted) {
-            sessionStorage.setItem("chatSessionId", res.id);
-            setSessionId(res.id);
-          }
-        } catch (error) {
-          console.error("Failed to create chat session:", error);
-          if (mounted) {
-            toast({
-              title: "Connection Error",
-              description: "Could not initialize a chat session. Please refresh the page.",
-              variant: "destructive"
-            });
-          }
-        }
-      }
-      if (mounted) {
+    if (sessionId || initStarted.current) return;
+    initStarted.current = true;
+
+    createSession()
+      .then((id) => {
+        sessionStorage.setItem(SESSION_KEY, id);
+        setSessionId(id);
+      })
+      .catch(() => {
+        toast({
+          title: "Connection Error",
+          description: "Could not initialize a chat session. Please refresh the page.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
         setIsInitializing(false);
-      }
-    }
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    initSession();
-
-    return () => {
-      mounted = false;
-    };
-  }, [sessionId, createSession, toast]);
-
-  // Provide enabled: !!sessionId implicitly via the Orval generated hook setup, 
-  // but we enforce it just in case
-  const messagesQuery = useGetChatMessages(sessionId || "", {
+  const messagesQuery = useGetChatMessages(sessionId ?? "", {
     query: {
       enabled: !!sessionId,
       refetchOnWindowFocus: false,
-    }
+    },
   });
 
   const sendMutation = useSendChatMessage({
@@ -64,37 +58,35 @@ export function useChat() {
       onSuccess: () => {
         if (sessionId) {
           queryClient.invalidateQueries({
-            queryKey: getGetChatMessagesQueryKey(sessionId)
+            queryKey: getGetChatMessagesQueryKey(sessionId),
           });
         }
       },
-      onError: (error) => {
+      onError: () => {
         toast({
           title: "Failed to send message",
-          description: error instanceof Error ? error.message : "An unknown error occurred",
-          variant: "destructive"
+          description: "An error occurred. Please try again.",
+          variant: "destructive",
         });
-      }
-    }
+      },
+    },
   });
 
-  const sendMessage = async (content: string) => {
-    if (!sessionId || !content.trim()) return;
-    
-    // Optistic UI could be added here, but relying on rapid refetch for simplicity and accuracy
-    await sendMutation.mutateAsync({
-      sessionId,
-      data: { content }
-    });
-  };
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!sessionId || !content.trim()) return;
+      await sendMutation.mutateAsync({ sessionId, data: { content } });
+    },
+    [sessionId, sendMutation]
+  );
 
   return {
     sessionId,
     isInitializing,
-    messages: messagesQuery.data || [],
-    isLoadingMessages: messagesQuery.isLoading,
+    messages: messagesQuery.data ?? [],
+    isLoadingMessages: messagesQuery.isLoading && !!sessionId,
     isSending: sendMutation.isPending,
     sendMessage,
-    error: messagesQuery.error || sendMutation.error
+    error: messagesQuery.error || sendMutation.error,
   };
 }
