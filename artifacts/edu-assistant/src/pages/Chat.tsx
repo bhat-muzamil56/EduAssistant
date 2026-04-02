@@ -671,14 +671,20 @@ export default function Chat() {
                           {msg.content}
                         </ReactMarkdown>
 
-                        {/* Bottom row: confidence + speak/stop button */}
+                        {/* Bottom row: confidence + detected language + speak/stop button */}
                         <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-3 flex-wrap">
                             {msg.confidence !== null && msg.confidence !== undefined && msg.confidence > 0 && (
-                              <>
+                              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
                                 Knowledge confidence: {Math.round(msg.confidence * 100)}%
-                              </>
+                              </span>
+                            )}
+                            {msg.detectedLang && (
+                              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+                                <Globe className="w-3 h-3" />
+                                {msg.detectedLang.flag} Detected: {msg.detectedLang.name}
+                              </span>
                             )}
                           </div>
 

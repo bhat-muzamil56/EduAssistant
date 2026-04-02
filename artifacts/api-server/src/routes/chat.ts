@@ -15,6 +15,7 @@ import {
   SendChatMessageParams,
 } from "@workspace/api-zod";
 import { authMiddleware, type AuthRequest } from "../middlewares/auth.js";
+import { detectLanguage } from "../utils/detect-language.js";
 
 const router: IRouter = Router();
 
@@ -158,12 +159,13 @@ function langName(code: string): string {
 async function getGeminiPerspective(
   question: string,
   context: string,
-  lang = "en"
+  detectedLang: { name: string; isEnglish: boolean }
 ): Promise<string> {
-  const language = langName(lang);
+  const bilingualNote = detectedLang.isEnglish
+    ? ""
+    : `\nIMPORTANT: The user wrote in ${detectedLang.name}. Provide your explanation in ${detectedLang.name} only (the main answer will include an English version separately).`;
   try {
-    const prompt = `You are a CS/AI tutor. Give a clear, friendly, intuitive explanation of the following question in 2-3 short paragraphs. Use simple language, relatable analogies, and a real-world example. Do not use heavy markdown — keep it conversational.
-IMPORTANT: You MUST respond entirely in ${language}. Every word of your answer must be in ${language}.
+    const prompt = `You are a CS/AI tutor. Give a clear, friendly, intuitive explanation of the following question in 2-3 short paragraphs. Use simple language, relatable analogies, and a real-world example. Do not use heavy markdown — keep it conversational.${bilingualNote}
 
 ${context ? `Relevant context:\n${context}\n\n` : ""}Question: ${question}`;
 
@@ -183,12 +185,26 @@ async function getFinalAnswer(
   knowledgeContext: string,
   geminiInsight: string,
   chatHistory: { role: "user" | "assistant"; content: string }[],
-  lang = "en"
+  detectedLang: { name: string; flag: string; isEnglish: boolean }
 ): Promise<string> {
-  const language = langName(lang);
-  const systemPrompt = `You are EduAssistant — an AI education tutor for Computer Science and Artificial Intelligence, powered by both OpenAI GPT and Google Gemini working together.
+  const bilingualBlock = detectedLang.isEnglish
+    ? ""
+    : `
+🌐 BILINGUAL RESPONSE REQUIRED (mandatory — do not skip):
+The user wrote in **${detectedLang.name}**. You MUST structure your entire response in TWO clearly separated sections:
 
-🌐 LANGUAGE INSTRUCTION (highest priority): You MUST respond ENTIRELY in ${language}. Every single word of your answer — including headings, labels, examples, and the closing line — must be written in ${language}. Do not mix languages. Do not fall back to English unless ${language} IS English.
+**Section 1 — 🇬🇧 English:**
+[Full, complete answer in English]
+
+---
+
+**Section 2 — ${detectedLang.flag} ${detectedLang.name}:**
+[Full, complete answer translated into ${detectedLang.name} — every word must be in ${detectedLang.name}]
+
+Both sections must be complete — do NOT abbreviate or summarise either one. Always use this exact format with the section headers and the horizontal rule separator.`;
+
+  const systemPrompt = `You are EduAssistant — an AI education tutor for Computer Science and Artificial Intelligence, powered by both OpenAI GPT and Google Gemini working together.
+${bilingualBlock}
 
 ## Your personality:
 - Friendly, patient, and encouraging — like a great university tutor
@@ -311,7 +327,7 @@ router.get("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequ
 
 router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = SendChatMessageParams.parse(req.params);
-  const { content, lang = "en" } = SendChatMessageBody.parse(req.body);
+  const { content } = SendChatMessageBody.parse(req.body);
   const userId = req.userId;
 
   if (userId) {
@@ -361,14 +377,17 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
     content: m.content,
   }));
 
-  const geminiInsight = await getGeminiPerspective(content, knowledgeContext, lang);
+  // Auto-detect the language the user typed in
+  const detectedLang = detectLanguage(content);
+
+  const geminiInsight = await getGeminiPerspective(content, knowledgeContext, detectedLang);
 
   const responseContent = await getFinalAnswer(
     content,
     knowledgeContext,
     geminiInsight,
     chatHistory,
-    lang
+    detectedLang
   );
 
   const [assistantMsg] = await db
@@ -388,6 +407,11 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
     content: assistantMsg.content,
     confidence: assistantMsg.confidence ?? null,
     createdAt: assistantMsg.createdAt.toISOString(),
+    detectedLang: detectedLang.isEnglish ? null : {
+      code: detectedLang.code,
+      name: detectedLang.name,
+      flag: detectedLang.flag,
+    },
   });
 });
 

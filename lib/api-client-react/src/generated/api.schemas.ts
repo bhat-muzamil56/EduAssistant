@@ -22,6 +22,12 @@ export const ChatMessageRole = {
   assistant: "assistant",
 } as const;
 
+export interface DetectedLanguageInfo {
+  code: string;
+  name: string;
+  flag: string;
+}
+
 export interface ChatMessage {
   id: string;
   sessionId: string;
@@ -29,6 +35,7 @@ export interface ChatMessage {
   content: string;
   confidence?: number | null;
   createdAt: string;
+  detectedLang?: DetectedLanguageInfo | null;
 }
 
 export interface SendMessageRequest {
