@@ -5,6 +5,7 @@ import {
   knowledgeBaseTable,
   chatSessionsTable,
   chatMessagesTable,
+  usersTable,
 } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { adminAuthMiddleware, type AuthRequest } from "../middlewares/auth.js";
@@ -130,6 +131,40 @@ router.delete("/knowledge/:id", adminAuthMiddleware, async (req: AuthRequest, re
   }
 
   res.json({ message: "Deleted successfully" });
+});
+
+router.get("/users", adminAuthMiddleware, async (_req: AuthRequest, res) => {
+  const users = await db
+    .select({
+      id: usersTable.id,
+      username: usersTable.username,
+      email: usersTable.email,
+      createdAt: usersTable.createdAt,
+    })
+    .from(usersTable)
+    .orderBy(usersTable.createdAt);
+
+  res.json(
+    users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      createdAt: u.createdAt.toISOString(),
+    }))
+  );
+});
+
+router.get("/stats", adminAuthMiddleware, async (_req: AuthRequest, res) => {
+  const [users, sessions, messages] = await Promise.all([
+    db.select({ id: usersTable.id }).from(usersTable),
+    db.select({ id: chatSessionsTable.id }).from(chatSessionsTable),
+    db.select({ id: chatMessagesTable.id }).from(chatMessagesTable),
+  ]);
+  res.json({
+    totalUsers: users.length,
+    totalSessions: sessions.length,
+    totalMessages: messages.length,
+  });
 });
 
 router.get("/sessions", adminAuthMiddleware, async (_req: AuthRequest, res) => {

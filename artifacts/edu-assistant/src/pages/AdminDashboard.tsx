@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   GraduationCap, LogOut, BookOpen, MessageSquare, Plus,
   Pencil, Trash2, ChevronDown, ChevronUp, X, Check, AlertCircle,
-  Search, Loader2
+  Search, Loader2, Users, BarChart3, Mail, CalendarDays
 } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -518,32 +518,122 @@ function SessionsTab() {
   );
 }
 
+interface UserRecord {
+  id: string;
+  username: string;
+  email: string;
+  createdAt: string;
+}
+
+function UsersTab() {
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/users`, { headers: authHeaders() });
+        if (!res.ok) throw new Error();
+        setUsers(await res.json());
+      } catch {
+        setError("Failed to load users.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const filtered = users.filter(
+    (u) =>
+      u.username.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-16 text-muted-foreground">
+      <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading users…
+    </div>
+  );
+  if (error) return (
+    <div className="flex items-center gap-2 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm">
+      <AlertCircle className="w-4 h-4 shrink-0" />{error}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          <span className="font-bold text-foreground text-lg">{users.length}</span> registered {users.length === 1 ? "user" : "users"}
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search users…"
+            className="pl-9 pr-4 py-2 text-sm bg-secondary/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 w-56"
+          />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          {search ? "No users match your search." : "No users registered yet."}
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map((user, i) => (
+            <div key={user.id} className="flex items-center gap-4 p-4 border border-border rounded-xl bg-card hover:bg-secondary/20 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-foreground truncate">{user.username}</div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                  <Mail className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{user.email}</span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <CalendarDays className="w-3 h-3" />
+                  {new Date(user.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </div>
+                <div className="text-xs text-muted-foreground/60 mt-0.5">#{i + 1}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface Stats { totalUsers: number; totalSessions: number; totalMessages: number; }
+
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
-  const [tab, setTab] = useState<"knowledge" | "sessions">("knowledge");
+  const [tab, setTab] = useState<"users" | "knowledge" | "sessions">("users");
   const [authChecked, setAuthChecked] = useState(false);
+  const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
-    if (!token) {
-      navigate("/admin");
-      return;
-    }
-    fetch(`${API_BASE}/api/admin/knowledge`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    if (!token) { navigate("/admin"); return; }
+    fetch(`${API_BASE}/api/admin/knowledge`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => {
-        if (!r.ok) {
-          localStorage.removeItem("admin_token");
-          navigate("/admin");
-        } else {
+        if (!r.ok) { localStorage.removeItem("admin_token"); navigate("/admin"); }
+        else {
           setAuthChecked(true);
+          fetch(`${API_BASE}/api/admin/stats`, { headers: { Authorization: `Bearer ${token}` } })
+            .then((r) => r.json()).then(setStats).catch(() => {});
         }
       })
-      .catch(() => {
-        localStorage.removeItem("admin_token");
-        navigate("/admin");
-      });
+      .catch(() => { localStorage.removeItem("admin_token"); navigate("/admin"); });
   }, [navigate]);
 
   async function handleLogout() {
@@ -592,16 +682,42 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Manage the knowledge base and review chat sessions.</p>
+          <p className="text-muted-foreground mt-1">Monitor users, manage the knowledge base, and review chat sessions.</p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[
+            { label: "Total Users", value: stats?.totalUsers ?? "—", icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+            { label: "Chat Sessions", value: stats?.totalSessions ?? "—", icon: MessageSquare, color: "text-violet-500", bg: "bg-violet-500/10" },
+            { label: "Messages Sent", value: stats?.totalMessages ?? "—", icon: BarChart3, color: "text-green-500", bg: "bg-green-500/10" },
+          ].map(({ label, value, icon: Icon, color, bg }) => (
+            <div key={label} className="border border-border rounded-2xl p-5 bg-card flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+                <Icon className={`w-6 h-6 ${color}`} />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{value}</div>
+                <div className="text-sm text-muted-foreground">{label}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="flex gap-1 p-1 bg-secondary/50 rounded-xl mb-8 w-fit">
           <button
+            onClick={() => setTab("users")}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              tab === "users" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Users
+          </button>
+          <button
             onClick={() => setTab("knowledge")}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === "knowledge"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+              tab === "knowledge" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -610,9 +726,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => setTab("sessions")}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === "sessions"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+              tab === "sessions" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             <MessageSquare className="w-4 h-4" />
@@ -620,6 +734,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {tab === "users" && <UsersTab />}
         {tab === "knowledge" && <KnowledgeTab />}
         {tab === "sessions" && <SessionsTab />}
       </main>
