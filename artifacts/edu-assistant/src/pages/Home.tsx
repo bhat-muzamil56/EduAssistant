@@ -795,6 +795,7 @@ export default function Home() {
   const [selectedStage, setSelectedStage] = useState<typeof PIPELINE_DETAILS[0] | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<FeatureDetail | null>(null);
   const [selectedCapability, setSelectedCapability] = useState<CapabilityDetail | null>(null);
+  const [selectedAboutCard, setSelectedAboutCard] = useState<"smart" | "curated" | null>(null);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -875,25 +876,40 @@ export default function Home() {
             </p>
           </div>
 
+          <p className="text-center text-sm text-muted-foreground mb-6">
+            👆 Click either card to learn exactly what it means
+          </p>
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="glass-card p-8 rounded-2xl flex items-start gap-4">
+            <motion.button
+              whileHover={{ scale: 1.03, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setSelectedAboutCard("smart")}
+              className="glass-card p-8 rounded-2xl flex items-start gap-4 text-left cursor-pointer group w-full hover:border-primary/50 hover:shadow-lg transition-all"
+            >
               <div className="p-3 bg-primary/10 rounded-xl text-primary shrink-0">
                 <Brain className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-xl font-bold mb-2">Smart Parsing</h3>
                 <p className="text-muted-foreground">Understands the deep intent behind student questions rather than just matching keywords.</p>
+                <span className="text-xs text-primary/60 group-hover:text-primary font-medium mt-2 inline-block transition-colors">tap to learn more →</span>
               </div>
-            </div>
-            <div className="glass-card p-8 rounded-2xl flex items-start gap-4">
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setSelectedAboutCard("curated")}
+              className="glass-card p-8 rounded-2xl flex items-start gap-4 text-left cursor-pointer group w-full hover:border-primary/50 hover:shadow-lg transition-all"
+            >
               <div className="p-3 bg-accent rounded-xl text-primary shrink-0">
                 <Database className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-xl font-bold mb-2">Curated Data</h3>
                 <p className="text-muted-foreground">Relies on a high-quality, factual knowledge base ensuring zero hallucinations.</p>
+                <span className="text-xs text-primary/60 group-hover:text-primary font-medium mt-2 inline-block transition-colors">tap to learn more →</span>
               </div>
-            </div>
+            </motion.button>
           </div>
         </div>
       </section>
@@ -1062,6 +1078,150 @@ export default function Home() {
       {/* Capability detail modal */}
       {selectedCapability && (
         <CapabilityModal capability={selectedCapability} onClose={() => setSelectedCapability(null)} />
+      )}
+
+      {/* About card modals — Smart Parsing & Curated Data */}
+      {selectedAboutCard && (
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedAboutCard(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 24 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="relative bg-background rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto border border-border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {selectedAboutCard === "smart" ? (
+                <>
+                  <div className="bg-gradient-to-r from-violet-500 to-indigo-600 p-6 rounded-t-2xl">
+                    <button onClick={() => setSelectedAboutCard(null)} className="absolute top-4 right-4 text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <Brain className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white/70 text-xs font-bold uppercase tracking-widest">🧠 How EduAssistant Thinks</div>
+                        <h2 className="text-2xl font-bold text-white">Smart Parsing</h2>
+                      </div>
+                    </div>
+                    <p className="text-white/80 text-sm mt-2">Understands the deep intent behind your question — not just the words you used.</p>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <h3 className="font-bold text-foreground mb-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />What is Smart Parsing?</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">Smart Parsing is the ability to understand <strong>what you really mean</strong> — not just what you literally typed. Most basic search systems only look for exact word matches. Smart Parsing goes deeper: it figures out the <em>intent</em> and <em>meaning</em> behind your words, so you get the right answer even if you phrased the question differently.</p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                      <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">💡 Real-life analogy</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">Imagine asking a librarian <em>"What's that thing that makes computers learn?"</em> — a smart librarian understands you mean <strong>Machine Learning</strong> and brings you the right book. A basic keyword search would find nothing because the words don't match exactly.</p>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />How it works in EduAssistant</h3>
+                      <ol className="space-y-2">
+                        {[
+                          "Your question is converted into a mathematical vector using TF-IDF (Term Frequency–Inverse Document Frequency)",
+                          "TF-IDF gives higher importance to rare, meaningful words and ignores common filler words (the, is, a)",
+                          "Every entry in the knowledge base also has its own vector",
+                          "Cosine Similarity measures the angle between your question vector and each knowledge base vector",
+                          "The closest angle = the most similar meaning — that entry wins, even if the words differ"
+                        ].map((step, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-muted-foreground">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">{i + 1}</span>
+                            <span className="leading-relaxed">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" />What this means for you</h3>
+                      <ul className="space-y-2">
+                        {[
+                          "Ask in any phrasing — you don't need to use exact keywords",
+                          "Typos and informal language still work",
+                          "Follow-up questions like 'explain that differently' are understood",
+                          "Ask in Urdu, Hindi, Arabic, or any language — it still parses correctly",
+                          "You get the most relevant answer, not just a random keyword match"
+                        ].map((cap, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                            <span>{cap}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-gradient-to-r from-blue-500 to-cyan-600 p-6 rounded-t-2xl">
+                    <button onClick={() => setSelectedAboutCard(null)} className="absolute top-4 right-4 text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <Database className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white/70 text-xs font-bold uppercase tracking-widest">📚 Verified Knowledge</div>
+                        <h2 className="text-2xl font-bold text-white">Curated Data</h2>
+                      </div>
+                    </div>
+                    <p className="text-white/80 text-sm mt-2">Answers grounded in a hand-verified knowledge base — not random internet results.</p>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <h3 className="font-bold text-foreground mb-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />What is Curated Data?</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">Curated Data means the information EduAssistant uses has been <strong>hand-picked, verified, and organised</strong> by humans — not scraped randomly from the internet. Every Q&A entry in the knowledge base was carefully written or approved to ensure it is accurate, clear, and trustworthy. This is the opposite of an AI that "makes things up."</p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                      <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">💡 Real-life analogy</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">Think of the difference between a <strong>Wikipedia article</strong> (written and reviewed by experts) vs. a random forum post. Curated data is like having a professor personally write every answer — you know it's correct before the AI even uses it.</p>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />How it works in EduAssistant</h3>
+                      <ol className="space-y-2">
+                        {[
+                          "99+ Q&A pairs are stored in a PostgreSQL database — each one hand-crafted",
+                          "Every entry has a category tag (AI, maths, science, history, coding, etc.)",
+                          "When you ask a question, the top matching entries are found and sent to the AI",
+                          "The AI is instructed to base its answer on these verified facts — not guess",
+                          "A confidence score (%) is shown on every response so you know how much of it came from verified data"
+                        ].map((step, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-muted-foreground">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">{i + 1}</span>
+                            <span className="leading-relaxed">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" />What this means for you</h3>
+                      <ul className="space-y-2">
+                        {[
+                          "Answers are based on verified facts — not random internet content",
+                          "The AI cannot hallucinate (make up) answers grounded in the knowledge base",
+                          "Every response shows a % confidence so you know how reliable it is",
+                          "Knowledge grows over time — admins can add new verified entries anytime",
+                          "You're learning from quality-controlled educational material, not guesses"
+                        ].map((cap, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                            <span>{cap}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>
       )}
 
       {/* TECH STACK */}
