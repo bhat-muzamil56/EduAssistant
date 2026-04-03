@@ -247,7 +247,7 @@ export default function Chat() {
   const { user, logout, loading: authLoading } = useAuth();
   const {
     messages, sessions, isInitializing, isLoadingMessages, isSending,
-    sendMessage, newChat, switchSession, error,
+    streamingContent, sendMessage, newChat, switchSession, error,
   } = useChat();
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -883,16 +883,30 @@ export default function Chat() {
                 <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0 mt-1">
                   <Bot className="w-4 h-4" />
                 </div>
-                <div className="px-5 py-4 rounded-2xl bg-card border border-border/50 rounded-tl-sm flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground mr-1">Thinking</span>
-                  {[0, 150, 300].map((delay, i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 rounded-full bg-primary/60 animate-bounce"
-                      style={{ animationDelay: `${delay}ms` }}
-                    />
-                  ))}
-                </div>
+                {streamingContent !== null && streamingContent.length > 0 ? (
+                  /* Streaming text — appears word by word */
+                  <div className="px-5 py-4 rounded-2xl bg-card border border-border/50 rounded-tl-sm max-w-[85%]">
+                    <div className="prose prose-sm md:prose-base dark:prose-invert prose-p:leading-relaxed prose-headings:font-bold max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {streamingContent}
+                      </ReactMarkdown>
+                    </div>
+                    {/* Blinking cursor while streaming */}
+                    <span className="inline-block w-0.5 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
+                  </div>
+                ) : (
+                  /* Waiting for first token — show dots */
+                  <div className="px-5 py-4 rounded-2xl bg-card border border-border/50 rounded-tl-sm flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground mr-1">Thinking</span>
+                    {[0, 150, 300].map((delay, i) => (
+                      <div
+                        key={i}
+                        className="w-2 h-2 rounded-full bg-primary/60 animate-bounce"
+                        style={{ animationDelay: `${delay}ms` }}
+                      />
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
             <div ref={messagesEndRef} />

@@ -483,4 +483,140 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
   });
 });
 
+// ── Streaming endpoint ──────────────────────────────────────────────────────
+// Runs Gemini in parallel (with 1.5s timeout) while streaming GPT token-by-token
+router.post("/sessions/:sessionId/stream", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = SendChatMessageParams.parse(req.params);
+  const { content } = SendChatMessageBody.parse(req.body);
+  const lang: string | undefined = typeof req.body.lang === "string" ? req.body.lang : undefined;
+  const userId = req.userId;
+
+  // Auth check
+  if (userId) {
+    const session = await db
+      .select()
+      .from(chatSessionsTable)
+      .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId)))
+      .limit(1);
+    if (session.length === 0) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+  }
+
+  // SSE headers — keep connection open for streaming
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const sendEvent = (data: object) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    // Save user message
+    await db.insert(chatMessagesTable).values({ sessionId, role: "user", content });
+
+    // Load knowledge base + chat history in parallel
+    const [knowledge, previousMessages] = await Promise.all([
+      db.select().from(knowledgeBaseTable),
+      db.select().from(chatMessagesTable)
+        .where(eq(chatMessagesTable.sessionId, sessionId))
+        .orderBy(chatMessagesTable.createdAt),
+    ]);
+
+    const topMatches = findTopMatches(content, knowledge, 5);
+    const topScore = topMatches[0]?.score ?? 0;
+    const confidence = Math.round(topScore * 100) / 100;
+    const relevantMatches = topMatches.filter(m => m.score > 0.05);
+    const knowledgeContext = relevantMatches.length > 0
+      ? relevantMatches.map((m, i) => `[${i + 1}] (${m.item.category ?? "General"}) Q: ${m.item.question}\nA: ${m.item.answer}`).join("\n\n")
+      : "";
+
+    const chatHistory = previousMessages.slice(-20).map(m => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
+    const detectedLang = detectLanguage(content);
+
+    // Run Gemini with a 1.5s timeout — don't block GPT on it
+    const geminiInsight = await Promise.race([
+      getGeminiPerspective(content, knowledgeContext, detectedLang),
+      new Promise<string>(resolve => setTimeout(() => resolve(""), 1500)),
+    ]);
+
+    // Build GPT prompt (same as getFinalAnswer but inline for streaming)
+    const langBlock = detectedLang.isEnglish
+      ? ""
+      : `\n🌐 LANGUAGE RULE (strictly enforced):\nThe user wrote in **${detectedLang.name}**. You MUST respond ENTIRELY in ${detectedLang.name}.\nDo NOT include any English. Do NOT add translations. Every single word of your response must be in ${detectedLang.name} only.`;
+
+    const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant powered by both OpenAI GPT and Google Gemini. You answer ANY question on ANY topic.
+${langBlock}
+
+## Rules:
+- NEVER refuse or say "I don't know" — you cover EVERYTHING
+- Give complete, accurate, helpful answers
+- Use clear structure with headings, bullets, or numbered steps as appropriate
+- Include real-world examples and analogies
+- Be friendly and encouraging
+
+## Sources:
+${knowledgeContext ? `📚 Knowledge Base:\n${knowledgeContext}\n` : ""}${geminiInsight ? `🤖 Gemini's perspective:\n${geminiInsight}\n` : ""}
+
+Synthesize all knowledge into one perfect, comprehensive answer.`;
+
+    // Stream GPT response token-by-token
+    const stream = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 2048,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...chatHistory,
+        { role: "user", content },
+      ],
+    });
+
+    let fullContent = "";
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content ?? "";
+      if (delta) {
+        fullContent += delta;
+        sendEvent({ type: "chunk", content: delta });
+      }
+    }
+
+    // Save assistant message to DB
+    const [assistantMsg] = await db
+      .insert(chatMessagesTable)
+      .values({ sessionId, role: "assistant", content: fullContent, confidence })
+      .returning();
+
+    // Send final metadata event
+    sendEvent({
+      type: "done",
+      message: {
+        id: assistantMsg.id,
+        sessionId: assistantMsg.sessionId,
+        role: assistantMsg.role,
+        content: assistantMsg.content,
+        confidence: assistantMsg.confidence ?? null,
+        createdAt: assistantMsg.createdAt.toISOString(),
+        detectedLang: detectedLang.isEnglish ? null : {
+          code: detectedLang.code,
+          name: detectedLang.name,
+          flag: detectedLang.flag,
+        },
+      },
+    });
+  } catch (err) {
+    sendEvent({ type: "error", message: "Failed to generate response" });
+  } finally {
+    res.end();
+  }
+});
+
 export default router;

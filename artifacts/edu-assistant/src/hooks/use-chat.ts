@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetChatMessages,
-  useSendChatMessage,
   getGetChatMessagesQueryKey,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +13,15 @@ export interface SessionPreview {
   id: string;
   createdAt: string;
   preview: string;
+}
+
+export interface OptimisticMessage {
+  id: string;
+  role: "user";
+  content: string;
+  sessionId: string;
+  confidence: null;
+  createdAt: string;
 }
 
 async function apiFetch(path: string, token: string, options?: RequestInit) {
@@ -29,22 +37,15 @@ async function apiFetch(path: string, token: string, options?: RequestInit) {
   return res.json();
 }
 
-export interface OptimisticMessage {
-  id: string;
-  role: "user";
-  content: string;
-  sessionId: string;
-  confidence: null;
-  createdAt: string;
-}
-
 export function useChat() {
   const { user, token } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionPreview[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [optimisticMessage, setOptimisticMessage] = useState<OptimisticMessage | null>(null);
+  const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const sessionsLoaded = useRef(false);
@@ -85,25 +86,6 @@ export function useChat() {
     },
   });
 
-  const sendMutation = useSendChatMessage({
-    mutation: {
-      onSuccess: () => {
-        if (sessionId) {
-          queryClient.invalidateQueries({
-            queryKey: getGetChatMessagesQueryKey(sessionId),
-          });
-        }
-      },
-      onError: () => {
-        toast({
-          title: "Failed to send message",
-          description: "An error occurred. Please try again.",
-          variant: "destructive",
-        });
-      },
-    },
-  });
-
   // Create a brand-new session on the server
   const createNewSession = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
@@ -135,10 +117,10 @@ export function useChat() {
     setSessionId(null);
   }, []);
 
-  // Send a message — auto-creates a session if none is active
+  // Send via streaming — user message appears instantly, AI streams word-by-word
   const sendMessage = useCallback(
     async (content: string, lang?: string) => {
-      if (!content.trim()) return;
+      if (!content.trim() || !token) return;
 
       let sid = sessionId;
       if (!sid) {
@@ -146,7 +128,7 @@ export function useChat() {
         if (!sid) return;
       }
 
-      // Show user message IMMEDIATELY (optimistic) so they see their question right away
+      // Show user message immediately
       setOptimisticMessage({
         id: `optimistic-${Date.now()}`,
         role: "user",
@@ -155,18 +137,70 @@ export function useChat() {
         confidence: null,
         createdAt: new Date().toISOString(),
       });
+      setIsSending(true);
+      setStreamingContent("");
 
       try {
-        await sendMutation.mutateAsync({ sessionId: sid, data: { content, lang } });
-      } finally {
-        // Clear optimistic message — the real messages list now has both user + AI message
-        setOptimisticMessage(null);
-      }
+        const response = await fetch(`${API_BASE}/api/chat/sessions/${sid}/stream`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content, lang }),
+        });
 
-      // Refresh session list so new chat appears in history
-      await refreshSessions();
+        if (!response.ok || !response.body) {
+          throw new Error(`Stream failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "chunk") {
+                setStreamingContent(prev => (prev ?? "") + event.content);
+              } else if (event.type === "done") {
+                // Streaming complete — refresh messages from server
+                setStreamingContent(null);
+                setOptimisticMessage(null);
+                await queryClient.invalidateQueries({
+                  queryKey: getGetChatMessagesQueryKey(sid!),
+                });
+              } else if (event.type === "error") {
+                throw new Error(event.message);
+              }
+            } catch {
+              // skip malformed lines
+            }
+          }
+        }
+      } catch {
+        setStreamingContent(null);
+        setOptimisticMessage(null);
+        toast({
+          title: "Failed to send message",
+          description: "An error occurred. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSending(false);
+        await refreshSessions();
+      }
     },
-    [sessionId, createNewSession, sendMutation, refreshSessions]
+    [sessionId, token, createNewSession, queryClient, refreshSessions, toast]
   );
 
   // Combine confirmed messages with the optimistic (pending) user message
@@ -182,11 +216,12 @@ export function useChat() {
     isLoadingSessions,
     messages: allMessages,
     isLoadingMessages: messagesQuery.isLoading && !!sessionId,
-    isSending: sendMutation.isPending,
+    isSending,
+    streamingContent,
     sendMessage,
     newChat,
     switchSession,
     refreshSessions,
-    error: messagesQuery.error || sendMutation.error,
+    error: messagesQuery.error,
   };
 }
