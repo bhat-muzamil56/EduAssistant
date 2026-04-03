@@ -29,12 +29,22 @@ async function apiFetch(path: string, token: string, options?: RequestInit) {
   return res.json();
 }
 
+export interface OptimisticMessage {
+  id: string;
+  role: "user";
+  content: string;
+  sessionId: string;
+  confidence: null;
+  createdAt: string;
+}
+
 export function useChat() {
   const { user, token } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionPreview[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [optimisticMessage, setOptimisticMessage] = useState<OptimisticMessage | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const sessionsLoaded = useRef(false);
@@ -136,7 +146,22 @@ export function useChat() {
         if (!sid) return;
       }
 
-      await sendMutation.mutateAsync({ sessionId: sid, data: { content, lang } });
+      // Show user message IMMEDIATELY (optimistic) so they see their question right away
+      setOptimisticMessage({
+        id: `optimistic-${Date.now()}`,
+        role: "user",
+        content,
+        sessionId: sid,
+        confidence: null,
+        createdAt: new Date().toISOString(),
+      });
+
+      try {
+        await sendMutation.mutateAsync({ sessionId: sid, data: { content, lang } });
+      } finally {
+        // Clear optimistic message — the real messages list now has both user + AI message
+        setOptimisticMessage(null);
+      }
 
       // Refresh session list so new chat appears in history
       await refreshSessions();
@@ -144,12 +169,18 @@ export function useChat() {
     [sessionId, createNewSession, sendMutation, refreshSessions]
   );
 
+  // Combine confirmed messages with the optimistic (pending) user message
+  const confirmedMessages = messagesQuery.data ?? [];
+  const allMessages = optimisticMessage
+    ? [...confirmedMessages, optimisticMessage]
+    : confirmedMessages;
+
   return {
     sessionId,
     sessions,
     isInitializing,
     isLoadingSessions,
-    messages: messagesQuery.data ?? [],
+    messages: allMessages,
     isLoadingMessages: messagesQuery.isLoading && !!sessionId,
     isSending: sendMutation.isPending,
     sendMessage,
