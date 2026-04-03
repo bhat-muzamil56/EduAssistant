@@ -140,6 +140,279 @@ const PIPELINE_DETAILS = [
   }
 ];
 
+// ── Platform Capability details ───────────────────────────────────────────────
+const CAPABILITY_DETAILS = [
+  {
+    icon: Brain,
+    label: "Dual AI Engine",
+    desc: "Gemini drafts an intuitive explanation, GPT synthesises the final structured answer — two models working together on every question.",
+    color: "from-violet-500 to-purple-700",
+    badge: "🤖 AI Power",
+    what: "EduAssistant uses two AI models simultaneously. First, Google Gemini generates a quick intuitive explanation. Then, GPT takes that explanation plus the knowledge base results and synthesises a final, polished, structured answer. You get the best of both models in every single response.",
+    frontend: [
+      "You send a question — the chat UI opens a streaming connection instantly",
+      "Words start appearing on screen within ~1 second as GPT generates them",
+      "A blinking cursor shows the AI is still writing — just like ChatGPT",
+      "When streaming completes, the full response is saved and confidence shown",
+      "The UI handles both models transparently — you just see one clean answer"
+    ],
+    backend: [
+      "Gemini runs with a 1.5s timeout in parallel with knowledge base retrieval",
+      "If Gemini finishes in time, its insight is injected into the GPT prompt",
+      "GPT streams the final answer token-by-token via Server-Sent Events (SSE)",
+      "The combined response is saved to PostgreSQL once streaming is complete",
+      "If Gemini times out, GPT proceeds alone — no disruption to the user"
+    ],
+    capabilities: [
+      "Two AI models work together on every question",
+      "Responses start streaming in ~1 second",
+      "Gemini adds intuitive context, GPT structures the final answer",
+      "Automatic fallback if either model is slow",
+      "Answers any question on any topic — science, maths, coding, history, and more"
+    ]
+  },
+  {
+    icon: Database,
+    label: "Curated Knowledge Base",
+    desc: "A hand-curated CS & AI knowledge base powers the retrieval layer, ensuring every answer is grounded in verified educational content.",
+    color: "from-blue-500 to-cyan-600",
+    badge: "📚 Knowledge",
+    what: "The Knowledge Base is a database of 99+ verified Q&A pairs covering computer science, AI, mathematics, science, history, and more. Before the AI responds, it searches this database for the most relevant facts and injects them into the prompt — grounding the answer in real, verified content rather than guessing.",
+    frontend: [
+      "A 'Knowledge confidence: XX%' badge appears on every AI response",
+      "High % means the answer is directly backed by the knowledge base",
+      "The Knowledge Base Preview section on the home page shows sample entries",
+      "Users benefit from the knowledge base automatically — no extra steps needed"
+    ],
+    backend: [
+      "All 99+ entries are stored in the PostgreSQL knowledgeBaseTable",
+      "TF-IDF vectors are computed in-memory for fast similarity matching",
+      "Top 5 most relevant entries are selected for each question",
+      "Only entries scoring above 0.05 cosine similarity are injected",
+      "Admins can add new entries anytime — they're instantly available"
+    ],
+    capabilities: [
+      "99+ curated entries across CS, AI, maths, science, history and more",
+      "Entries are instantly searchable by any user question",
+      "New entries take effect immediately — no restart required",
+      "Category-tagged for organised knowledge management",
+      "Admin scripts to bulk-add entries in seconds"
+    ]
+  },
+  {
+    icon: ShieldCheck,
+    label: "Secure Authentication",
+    desc: "Full login and sign-up with hashed passwords and JWT session tokens. Every chat endpoint is protected — only you can see your history.",
+    color: "from-green-500 to-teal-600",
+    badge: "🔒 Security",
+    what: "Every account and conversation in EduAssistant is fully secured. Passwords are never stored as plain text — they're hashed with bcrypt. When you log in, you receive a JWT (JSON Web Token) that proves your identity. Every API call to the chat requires this token — without it, no data is accessible.",
+    frontend: [
+      "Sign up or log in with your email and password on the auth page",
+      "Your JWT token is stored securely in localStorage after login",
+      "Every API request automatically includes the token in the Authorization header",
+      "If your session expires, you're redirected to the login page automatically",
+      "The nav shows your username and a sign-out button when logged in"
+    ],
+    backend: [
+      "Passwords are hashed with bcrypt (salt rounds = 10) before storage",
+      "On login, bcrypt compares the input against the stored hash",
+      "A signed JWT token is issued with your userId and an expiry time",
+      "Every protected route runs authMiddleware — it verifies the JWT signature",
+      "Session data is never stored server-side — stateless auth via JWT"
+    ],
+    capabilities: [
+      "bcrypt password hashing — raw passwords never stored",
+      "JWT tokens for stateless, scalable authentication",
+      "Every chat, session, and message is scoped to your user ID",
+      "Admin-only routes protected by an isAdmin database flag",
+      "Automatic session expiry and logout on invalid tokens"
+    ]
+  },
+  {
+    icon: Clock,
+    label: "Persistent Chat History",
+    desc: "Conversations are saved to PostgreSQL and linked to your account. Close the browser, come back days later — your history is still there.",
+    color: "from-indigo-500 to-blue-600",
+    badge: "💾 Memory",
+    what: "Every message you send and every AI response you receive is permanently saved in PostgreSQL and linked to your account. You can close the browser, switch devices, or come back weeks later — all your conversations are exactly where you left them. The sidebar shows all your past chats with previews.",
+    frontend: [
+      "A sidebar (hamburger menu) shows all your past chat sessions",
+      "Each session shows a preview of your first message and the date",
+      "Click any session to jump back into that exact conversation",
+      "New Chat button starts a fresh conversation while keeping all old ones",
+      "Sessions are grouped by date — Today, Yesterday, and older dates"
+    ],
+    backend: [
+      "Every message is stored in chatMessagesTable with sessionId, role, content, and timestamp",
+      "Sessions are stored in chatSessionsTable linked to your userId",
+      "GET /api/chat/user-sessions returns all sessions with first-message previews",
+      "GET /api/chat/sessions/:id/messages returns all messages in a session",
+      "Last 20 messages from a session are sent to the AI as conversation context"
+    ],
+    capabilities: [
+      "Unlimited chat sessions per user — all saved permanently",
+      "Full conversation history restored on every visit",
+      "Chat sidebar with previews, dates, and instant session switching",
+      "AI remembers the last 20 messages for natural follow-up questions",
+      "All history is private — no other user can access your sessions"
+    ]
+  },
+  {
+    icon: BarChart3,
+    label: "Admin Dashboard",
+    desc: "A protected admin panel lets administrators view all users, monitor active chat sessions, and oversee platform activity in real time.",
+    color: "from-orange-500 to-red-600",
+    badge: "⚙️ Admin",
+    what: "The Admin Dashboard is a special protected page only accessible to admin accounts. It gives administrators a complete overview of the platform — all registered users, all chat sessions, message counts, and activity statistics. It's the control centre for managing and monitoring EduAssistant.",
+    frontend: [
+      "Admin panel is accessible at /admin — redirects if you're not an admin",
+      "Shows total users, total sessions, total messages at a glance",
+      "Lists all registered users with their usernames and account creation dates",
+      "Shows all chat sessions with message counts and timestamps",
+      "Real-time data — refreshes on each visit"
+    ],
+    backend: [
+      "Admin routes are protected by authMiddleware + isAdmin check in the DB",
+      "GET /api/admin/stats returns aggregated counts from the database",
+      "GET /api/admin/users returns all users (password hashes excluded)",
+      "GET /api/admin/sessions returns all sessions across all users",
+      "The isAdmin flag is set directly in the usersTable in PostgreSQL"
+    ],
+    capabilities: [
+      "Full platform oversight — users, sessions, messages",
+      "Secure admin-only access controlled by database flag",
+      "Monitor user growth and chat activity over time",
+      "View any session's message count and creation time",
+      "Easy to extend with new admin features as the platform grows"
+    ]
+  },
+  {
+    icon: Mic,
+    label: "Voice Interaction",
+    desc: "Tap the microphone in chat to speak your question out loud. The browser transcribes it in real time and drops the text straight into the message box.",
+    color: "from-pink-500 to-rose-600",
+    badge: "🎙️ Voice",
+    what: "Voice Interaction lets you speak to EduAssistant instead of typing. Press the mic button, speak your question, and the browser transcribes it instantly using the Web Speech API. When you use the mic, the AI also speaks the answer back to you using text-to-speech — a full hands-free experience.",
+    frontend: [
+      "Mic button in the chat input area — click to start, click again to stop",
+      "Orange animated pulse shows the mic is actively listening",
+      "Your speech is transcribed in real-time directly into the input box",
+      "When sent via mic, the AI response is automatically read aloud (TTS)",
+      "Voice Mode toggle — the AI speaks every response automatically",
+      "50+ language support — speaks and listens in Urdu, Hindi, Arabic, and more"
+    ],
+    backend: [
+      "Speech recognition runs entirely in the browser — no server processing needed",
+      "The transcribed text is sent to the backend exactly like a typed message",
+      "Language detection identifies the spoken language from the transcript",
+      "The AI responds in the same language the user spoke in",
+      "Text-to-speech (TTS) is also browser-based — zero server overhead"
+    ],
+    capabilities: [
+      "Real-time speech-to-text transcription in the browser",
+      "Auto-speak: AI reads its response aloud when you use the mic",
+      "Hands-free Voice Mode — speak and listen continuously",
+      "Works in 50+ languages — speak in any language",
+      "No additional setup — works instantly in Chrome and modern browsers"
+    ]
+  }
+];
+
+type CapabilityDetail = typeof CAPABILITY_DETAILS[0];
+
+function CapabilityModal({ capability, onClose }: { capability: CapabilityDetail; onClose: () => void }) {
+  const [tab, setTab] = useState<"frontend" | "backend">("frontend");
+  const Icon = capability.icon;
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 24 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="relative bg-background rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto border border-border"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className={`bg-gradient-to-r ${capability.color} p-6 rounded-t-2xl`}>
+            <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <Icon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-white/70 text-xs font-bold uppercase tracking-widest">{capability.badge}</div>
+                <h2 className="text-2xl font-bold text-white">{capability.label}</h2>
+              </div>
+            </div>
+            <p className="text-white/80 text-sm mt-2">{capability.desc}</p>
+          </div>
+
+          <div className="p-6 space-y-6">
+            <div>
+              <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                What is it?
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{capability.what}</p>
+            </div>
+
+            <div>
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setTab("frontend")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "frontend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                >
+                  ⚛️ Frontend
+                </button>
+                <button
+                  onClick={() => setTab("backend")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "backend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                >
+                  🖥️ Backend
+                </button>
+              </div>
+              <ol className="space-y-2">
+                {(tab === "frontend" ? capability.frontend : capability.backend).map((item, i) => (
+                  <li key={i} className="flex gap-3 text-sm text-muted-foreground">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="leading-relaxed">{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                What it can do
+              </h3>
+              <ul className="space-y-2">
+                {capability.capabilities.map((cap, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                    <span>{cap}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ── Feature details ──────────────────────────────────────────────────────────
 const FEATURE_DETAILS = [
   {
@@ -521,6 +794,7 @@ export default function Home() {
   const { user } = useAuth();
   const [selectedStage, setSelectedStage] = useState<typeof PIPELINE_DETAILS[0] | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<FeatureDetail | null>(null);
+  const [selectedCapability, setSelectedCapability] = useState<CapabilityDetail | null>(null);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -785,6 +1059,11 @@ export default function Home() {
         <FeatureModal feature={selectedFeature} onClose={() => setSelectedFeature(null)} />
       )}
 
+      {/* Capability detail modal */}
+      {selectedCapability && (
+        <CapabilityModal capability={selectedCapability} onClose={() => setSelectedCapability(null)} />
+      )}
+
       {/* TECH STACK */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -855,44 +1134,25 @@ export default function Home() {
             <p className="text-muted-foreground">Everything that's live and working in EduAssistant right now.</p>
           </div>
           
+          <p className="text-center text-sm text-muted-foreground mb-8 -mt-8">
+            👆 Click any capability to understand what it does and how it works
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {[
-              {
-                icon: Brain,
-                label: "Dual AI Engine",
-                desc: "Gemini drafts an intuitive explanation, GPT-4o synthesises the final structured answer — two models working together on every question."
-              },
-              {
-                icon: Database,
-                label: "Curated Knowledge Base",
-                desc: "A hand-curated CS & AI knowledge base powers the retrieval layer, ensuring every answer is grounded in verified educational content."
-              },
-              {
-                icon: ShieldCheck,
-                label: "Secure Authentication",
-                desc: "Full login and sign-up with hashed passwords and JWT session tokens. Every chat endpoint is protected — only you can see your history."
-              },
-              {
-                icon: Clock,
-                label: "Persistent Chat History",
-                desc: "Conversations are saved to PostgreSQL and linked to your account. Close the browser, come back days later — your history is still there."
-              },
-              {
-                icon: BarChart3,
-                label: "Admin Dashboard",
-                desc: "A protected admin panel lets administrators view all users, monitor active chat sessions, and oversee platform activity in real time."
-              },
-              {
-                icon: Mic,
-                label: "Voice Interaction",
-                desc: "Tap the microphone in chat to speak your question out loud. The browser transcribes it in real time and drops the text straight into the message box."
-              }
-            ].map((item, i) => (
-              <div key={i} className="p-6 border border-border rounded-2xl hover:border-primary hover:shadow-md transition-all group">
+            {CAPABILITY_DETAILS.map((item, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.03, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedCapability(item)}
+                className="p-6 border border-border rounded-2xl hover:border-primary hover:shadow-md transition-all text-left group cursor-pointer w-full"
+              >
                 <item.icon className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
                 <h4 className="font-semibold text-foreground mb-2">{item.label}</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-              </div>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-3">{item.desc}</p>
+                <span className="text-xs text-primary/60 group-hover:text-primary font-medium transition-colors">
+                  tap to explore →
+                </span>
+              </motion.button>
             ))}
           </div>
         </div>
