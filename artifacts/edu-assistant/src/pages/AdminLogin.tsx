@@ -112,7 +112,7 @@ export default function AdminLogin() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           <a href="/" className="hover:text-primary transition-colors">
-            ← Back to EduAssistant
+            ← Back to AskEdu
           </a>
         </p>
       </div>

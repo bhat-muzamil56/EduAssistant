@@ -50,7 +50,7 @@ export function Footer() {
         
         <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} AI Education Assistant. Open Source Project.
+            © {new Date().getFullYear()} AskEdu. Open Source Project.
           </p>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             Built with <span className="text-primary font-medium">Replit</span>

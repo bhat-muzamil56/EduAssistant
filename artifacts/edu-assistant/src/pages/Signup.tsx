@@ -57,7 +57,7 @@ export default function Signup() {
             <GraduationCap className="w-8 h-8 text-primary" />
           </Link>
           <h1 className="text-3xl font-bold">Create an account</h1>
-          <p className="text-muted-foreground mt-2">Join EduAssistant and start learning today</p>
+          <p className="text-muted-foreground mt-2">Join AskEdu and start learning today</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-8 shadow-lg">

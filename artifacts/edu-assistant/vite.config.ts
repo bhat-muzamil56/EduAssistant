@@ -37,9 +37,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "icon.svg", "apple-touch-icon.png"],
       manifest: {
-        name: "EduAssistant — AI Learning Companion",
-        short_name: "EduAssistant",
-        description: "Your intelligent AI-powered education assistant. Ask anything, in any language.",
+        name: "AskEdu — Ask Anything, Learn Everything",
+        short_name: "AskEdu",
+        description: "AskEdu — your AI-powered learning assistant. Ask any question in any language and get instant, verified answers.",
         theme_color: "#4F46E5",
         background_color: "#0f0f23",
         display: "standalone",
