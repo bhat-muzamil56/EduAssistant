@@ -29,6 +29,11 @@ import {
   Heart,
   Shuffle,
   FileText,
+  Menu,
+  X,
+  MessageSquare,
+  Plus,
+  Clock,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -240,8 +245,12 @@ declare const SpeechRecognition: new () => SpeechRecognitionInstance;
 export default function Chat() {
   const [, navigate] = useLocation();
   const { user, logout, loading: authLoading } = useAuth();
-  const { messages, isInitializing, isLoadingMessages, isSending, sendMessage, error } = useChat();
+  const {
+    messages, sessions, isInitializing, isLoadingMessages, isSending,
+    sendMessage, newChat, switchSession, error,
+  } = useChat();
   const [input, setInput] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceInputPending, setVoiceInputPending] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
@@ -474,11 +483,109 @@ export default function Chat() {
     );
   }
 
+  // ── Helper: format session date label ───────────────────────────────────
+  const formatSessionDate = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 86400000) return "Today";
+    if (diff < 172800000) return "Yesterday";
+    if (diff < 604800000) return d.toLocaleDateString(undefined, { weekday: "long" });
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
+
+      {/* ── History Sidebar ── */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="sidebar-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+            />
+            {/* Panel */}
+            <motion.aside
+              key="sidebar-panel"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              className="fixed left-0 top-0 bottom-0 z-50 w-72 bg-background border-r border-border flex flex-col shadow-2xl"
+            >
+              {/* Sidebar header */}
+              <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="font-semibold text-sm text-foreground">Chat History</span>
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* New Chat button */}
+              <div className="px-3 py-3 border-b border-border">
+                <button
+                  onClick={() => { newChat(); setSidebarOpen(false); setInput(""); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-sm font-semibold shadow-sm active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  New chat
+                </button>
+              </div>
+
+              {/* Session list */}
+              <div className="flex-1 overflow-y-auto py-2">
+                {sessions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground px-4">
+                    <MessageSquare className="w-8 h-8 opacity-30" />
+                    <p className="text-xs text-center">No chat history yet. Start a conversation!</p>
+                  </div>
+                ) : (
+                  sessions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => { switchSession(s.id); setSidebarOpen(false); }}
+                      className="w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors group"
+                    >
+                      <p className="text-xs text-muted-foreground mb-0.5 font-medium">
+                        {formatSessionDate(s.createdAt)}
+                      </p>
+                      <p className="text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                        {s.preview}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="flex-shrink-0 h-16 border-b border-border/50 bg-background/80 backdrop-blur-md flex items-center px-4 md:px-6 justify-between z-10">
         <div className="flex items-center gap-3">
+          {/* Hamburger / history toggle */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            title="Chat history"
+            className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
           <div className="flex items-center gap-2.5">
             <div className="relative">
               <div className="bg-primary/15 p-2 rounded-xl">

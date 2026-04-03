@@ -9,54 +9,64 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const SESSION_STORAGE_PREFIX = "chatSessionId_";
 
-async function fetchMySession(token: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/chat/my-session`, {
-    headers: { Authorization: `Bearer ${token}` },
+export interface SessionPreview {
+  id: string;
+  createdAt: string;
+  preview: string;
+}
+
+async function apiFetch(path: string, token: string, options?: RequestInit) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(options?.headers ?? {}),
+    },
   });
-  if (!res.ok) throw new Error("Failed to get session");
-  const data = await res.json();
-  return data.id as string;
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
 }
 
 export function useChat() {
   const { user, token } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const initStarted = useRef(false);
+  const [sessions, setSessions] = useState<SessionPreview[]>([]);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const sessionsLoaded = useRef(false);
+
+  // Load history list whenever user logs in
+  const refreshSessions = useCallback(async () => {
+    if (!token) return;
+    setIsLoadingSessions(true);
+    try {
+      const data = await apiFetch("/api/chat/user-sessions", token);
+      setSessions(data as SessionPreview[]);
+    } catch {
+      // silently ignore
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }, [token]);
 
   useEffect(() => {
-    if (!token || !user || initStarted.current) return;
-    initStarted.current = true;
+    if (!token || !user || sessionsLoaded.current) return;
+    sessionsLoaded.current = true;
+    refreshSessions();
+  }, [token, user, refreshSessions]);
 
-    const storageKey = `${SESSION_STORAGE_PREFIX}${user.id}`;
-    const cached = localStorage.getItem(storageKey);
-
-    if (cached) {
-      setSessionId(cached);
-      setIsInitializing(false);
-      return;
+  // Reset when user logs out
+  useEffect(() => {
+    if (!user) {
+      setSessionId(null);
+      setSessions([]);
+      sessionsLoaded.current = false;
     }
-
-    fetchMySession(token)
-      .then((id) => {
-        localStorage.setItem(storageKey, id);
-        setSessionId(id);
-      })
-      .catch(() => {
-        toast({
-          title: "Connection Error",
-          description: "Could not load your chat session. Please refresh.",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setIsInitializing(false);
-      });
-  }, [token, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const messagesQuery = useGetChatMessages(sessionId ?? "", {
     query: {
@@ -84,21 +94,68 @@ export function useChat() {
     },
   });
 
+  // Create a brand-new session on the server
+  const createNewSession = useCallback(async (): Promise<string | null> => {
+    if (!token) return null;
+    setIsInitializing(true);
+    try {
+      const data = await apiFetch("/api/chat/new-session", token, { method: "POST" });
+      const newId = data.id as string;
+      setSessionId(newId);
+      return newId;
+    } catch {
+      toast({
+        title: "Could not start a new chat",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [token, toast]);
+
+  // Switch to an existing session from history
+  const switchSession = useCallback((id: string) => {
+    setSessionId(id);
+  }, []);
+
+  // Clear active session → shows the clean welcome screen
+  const newChat = useCallback(() => {
+    setSessionId(null);
+  }, []);
+
+  // Send a message — auto-creates a session if none is active
   const sendMessage = useCallback(
     async (content: string, lang?: string) => {
-      if (!sessionId || !content.trim()) return;
-      await sendMutation.mutateAsync({ sessionId, data: { content, lang } });
+      if (!content.trim()) return;
+
+      let sid = sessionId;
+      if (!sid) {
+        sid = await createNewSession();
+        if (!sid) return;
+      }
+
+      await sendMutation.mutateAsync({ sessionId: sid, data: { content, lang } });
+
+      // Refresh session list so new chat appears in history
+      await refreshSessions();
     },
-    [sessionId, sendMutation]
+    [sessionId, createNewSession, sendMutation, refreshSessions]
   );
 
   return {
     sessionId,
+    sessions,
     isInitializing,
+    isLoadingSessions,
     messages: messagesQuery.data ?? [],
     isLoadingMessages: messagesQuery.isLoading && !!sessionId,
     isSending: sendMutation.isPending,
     sendMessage,
+    newChat,
+    switchSession,
+    refreshSessions,
     error: messagesQuery.error || sendMutation.error,
   };
 }

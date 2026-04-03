@@ -5,7 +5,7 @@ import {
   chatMessagesTable,
   knowledgeBaseTable,
 } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { findTopMatches } from "../lib/tfidf.js";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ai } from "@workspace/integrations-gemini-ai";
@@ -295,6 +295,54 @@ router.get("/my-session", authMiddleware, async (req: AuthRequest, res) => {
     res.json({ id: existing[0].id, createdAt: existing[0].createdAt.toISOString() });
     return;
   }
+
+  const [session] = await db
+    .insert(chatSessionsTable)
+    .values({ userId })
+    .returning();
+
+  res.status(201).json({ id: session.id, createdAt: session.createdAt.toISOString() });
+});
+
+// List all sessions for the logged-in user (most recent first, with first-message preview)
+router.get("/user-sessions", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const sessions = await db
+    .select()
+    .from(chatSessionsTable)
+    .where(eq(chatSessionsTable.userId, userId))
+    .orderBy(desc(chatSessionsTable.createdAt));
+
+  const sessionsWithPreview = await Promise.all(
+    sessions.map(async (session) => {
+      const firstMsg = await db
+        .select()
+        .from(chatMessagesTable)
+        .where(and(
+          eq(chatMessagesTable.sessionId, session.id),
+          eq(chatMessagesTable.role, "user")
+        ))
+        .orderBy(chatMessagesTable.createdAt)
+        .limit(1);
+
+      return {
+        id: session.id,
+        createdAt: session.createdAt.toISOString(),
+        preview: firstMsg[0]?.content?.slice(0, 80) ?? null,
+      };
+    })
+  );
+
+  // Only return sessions that have at least one message
+  res.json(sessionsWithPreview.filter(s => s.preview !== null));
+});
+
+// Create a fresh new session for the logged-in user
+router.post("/new-session", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const [session] = await db
     .insert(chatSessionsTable)
