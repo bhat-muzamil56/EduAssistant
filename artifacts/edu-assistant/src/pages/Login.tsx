@@ -45,7 +45,7 @@ export default function Login() {
             <GraduationCap className="w-8 h-8 text-primary" />
           </Link>
           <h1 className="text-3xl font-bold">Welcome back</h1>
-          <p className="text-muted-foreground mt-2">Sign in to your MuzamilAI account</p>
+          <p className="text-muted-foreground mt-2">Sign in to your EduAssistant account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-8 shadow-lg">

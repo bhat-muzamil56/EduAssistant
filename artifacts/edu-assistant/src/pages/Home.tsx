@@ -148,7 +148,7 @@ const CAPABILITY_DETAILS = [
     desc: "Gemini drafts an intuitive explanation, GPT synthesises the final structured answer — two models working together on every question.",
     color: "from-violet-500 to-purple-700",
     badge: "🤖 AI Power",
-    what: "MuzamilAI uses two AI models simultaneously. First, Google Gemini generates a quick intuitive explanation. Then, GPT takes that explanation plus the knowledge base results and synthesises a final, polished, structured answer. You get the best of both models in every single response.",
+    what: "EduAssistant uses two AI models simultaneously. First, Google Gemini generates a quick intuitive explanation. Then, GPT takes that explanation plus the knowledge base results and synthesises a final, polished, structured answer. You get the best of both models in every single response.",
     frontend: [
       "You send a question — the chat UI opens a streaming connection instantly",
       "Words start appearing on screen within ~1 second as GPT generates them",
@@ -205,7 +205,7 @@ const CAPABILITY_DETAILS = [
     desc: "Full login and sign-up with hashed passwords and JWT session tokens. Every chat endpoint is protected — only you can see your history.",
     color: "from-green-500 to-teal-600",
     badge: "🔒 Security",
-    what: "Every account and conversation in MuzamilAI is fully secured. Passwords are never stored as plain text — they're hashed with bcrypt. When you log in, you receive a JWT (JSON Web Token) that proves your identity. Every API call to the chat requires this token — without it, no data is accessible.",
+    what: "Every account and conversation in EduAssistant is fully secured. Passwords are never stored as plain text — they're hashed with bcrypt. When you log in, you receive a JWT (JSON Web Token) that proves your identity. Every API call to the chat requires this token — without it, no data is accessible.",
     frontend: [
       "Sign up or log in with your email and password on the auth page",
       "Your JWT token is stored securely in localStorage after login",
@@ -263,7 +263,7 @@ const CAPABILITY_DETAILS = [
     desc: "A protected admin panel lets administrators view all users, monitor active chat sessions, and oversee platform activity in real time.",
     color: "from-orange-500 to-red-600",
     badge: "⚙️ Admin",
-    what: "The Admin Dashboard is a special protected page only accessible to admin accounts. It gives administrators a complete overview of the platform — all registered users, all chat sessions, message counts, and activity statistics. It's the control centre for managing and monitoring MuzamilAI.",
+    what: "The Admin Dashboard is a special protected page only accessible to admin accounts. It gives administrators a complete overview of the platform — all registered users, all chat sessions, message counts, and activity statistics. It's the control centre for managing and monitoring EduAssistant.",
     frontend: [
       "Admin panel is accessible at /admin — redirects if you're not an admin",
       "Shows total users, total sessions, total messages at a glance",
@@ -292,7 +292,7 @@ const CAPABILITY_DETAILS = [
     desc: "Tap the microphone in chat to speak your question out loud. The browser transcribes it in real time and drops the text straight into the message box.",
     color: "from-pink-500 to-rose-600",
     badge: "🎙️ Voice",
-    what: "Voice Interaction lets you speak to MuzamilAI instead of typing. Press the mic button, speak your question, and the browser transcribes it instantly using the Web Speech API. When you use the mic, the AI also speaks the answer back to you using text-to-speech — a full hands-free experience.",
+    what: "Voice Interaction lets you speak to EduAssistant instead of typing. Press the mic button, speak your question, and the browser transcribes it instantly using the Web Speech API. When you use the mic, the AI also speaks the answer back to you using text-to-speech — a full hands-free experience.",
     frontend: [
       "Mic button in the chat input area — click to start, click again to stop",
       "Orange animated pulse shows the mic is actively listening",
@@ -449,7 +449,7 @@ const FEATURE_DETAILS = [
     short: "Zero hallucination guarantee. Answers are strictly bounded to the provided dataset.",
     color: "from-green-500 to-emerald-600",
     badge: "🛡️ Reliability",
-    what: "Factual Accuracy means MuzamilAI only tells you things it knows for certain. When a question matches the curated knowledge base, the AI is given that verified content as its source — reducing the chance of made-up or incorrect answers. A confidence score is always shown so you know how sure the system is.",
+    what: "Factual Accuracy means EduAssistant only tells you things it knows for certain. When a question matches the curated knowledge base, the AI is given that verified content as its source — reducing the chance of made-up or incorrect answers. A confidence score is always shown so you know how sure the system is.",
     frontend: [
       "Every AI response shows a 'Knowledge confidence: XX%' badge",
       "High confidence (>70%) means the answer is grounded in the knowledge base",
@@ -477,7 +477,7 @@ const FEATURE_DETAILS = [
     short: "Maintains a history of interactions to provide a continuous learning conversation.",
     color: "from-blue-500 to-indigo-600",
     badge: "🧠 Memory",
-    what: "Contextual Memory means MuzamilAI remembers everything you said earlier in the conversation. If you ask a follow-up question like 'Can you explain that differently?' it knows what 'that' refers to. Your entire conversation history is stored in the database and sent to the AI with every new message.",
+    what: "Contextual Memory means EduAssistant remembers everything you said earlier in the conversation. If you ask a follow-up question like 'Can you explain that differently?' it knows what 'that' refers to. Your entire conversation history is stored in the database and sent to the AI with every new message.",
     frontend: [
       "All your past messages appear when you open a previous chat from the sidebar",
       "The sidebar shows all your chat sessions with previews and dates",
@@ -505,7 +505,7 @@ const FEATURE_DETAILS = [
     short: "Matches intent, not just exact keywords. Variations of questions yield correct answers.",
     color: "from-purple-500 to-violet-600",
     badge: "🔍 Intelligence",
-    what: "Semantic Understanding means MuzamilAI understands what you mean, not just what you literally typed. It uses TF-IDF (Term Frequency–Inverse Document Frequency) to measure how meaningful each word is. So 'explain neural networks' and 'what are neural nets?' both find the same answer — because the intent is the same.",
+    what: "Semantic Understanding means EduAssistant understands what you mean, not just what you literally typed. It uses TF-IDF (Term Frequency–Inverse Document Frequency) to measure how meaningful each word is. So 'explain neural networks' and 'what are neural nets?' both find the same answer — because the intent is the same.",
     frontend: [
       "You can phrase questions naturally — no need for exact keyword matches",
       "Typos, abbreviations, and paraphrasing all still work",
@@ -533,7 +533,7 @@ const FEATURE_DETAILS = [
     short: "Beautiful, responsive interface designed to keep students engaged and focused.",
     color: "from-pink-500 to-rose-600",
     badge: "🎨 Design",
-    what: "Modern UI/UX means MuzamilAI looks and feels like a professional app. The interface is clean, animated, responsive (works on phone, tablet, and desktop), and supports dark mode. It's built with the same design principles as ChatGPT — minimal, distraction-free, and easy to use.",
+    what: "Modern UI/UX means EduAssistant looks and feels like a professional app. The interface is clean, animated, responsive (works on phone, tablet, and desktop), and supports dark mode. It's built with the same design principles as ChatGPT — minimal, distraction-free, and easy to use.",
     frontend: [
       "Smooth animations using Framer Motion on every interaction",
       "ChatGPT-style welcome screen with quick action chips",
@@ -565,7 +565,7 @@ const FEATURE_DETAILS = [
     short: "Easily update the knowledge base with new curriculum materials via the database.",
     color: "from-slate-600 to-slate-800",
     badge: "🗄️ Admin",
-    what: "Extensible Base means the knowledge MuzamilAI uses can be expanded at any time. Admins can add new Q&A pairs to the PostgreSQL database and the AI will immediately start using them — no code changes, no redeployment needed. There's also a built-in Admin Panel to manage users and sessions.",
+    what: "Extensible Base means the knowledge EduAssistant uses can be expanded at any time. Admins can add new Q&A pairs to the PostgreSQL database and the AI will immediately start using them — no code changes, no redeployment needed. There's also a built-in Admin Panel to manage users and sessions.",
     frontend: [
       "Admin Panel at /admin — view all users, sessions, and messages",
       "See total message counts, session counts, and registered users",
@@ -1107,7 +1107,7 @@ export default function Home() {
                         <Brain className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <div className="text-white/70 text-xs font-bold uppercase tracking-widest">🧠 How MuzamilAI Thinks</div>
+                        <div className="text-white/70 text-xs font-bold uppercase tracking-widest">🧠 How EduAssistant Thinks</div>
                         <h2 className="text-2xl font-bold text-white">Smart Parsing</h2>
                       </div>
                     </div>
@@ -1123,7 +1123,7 @@ export default function Home() {
                       <p className="text-sm text-muted-foreground leading-relaxed">Imagine asking a librarian <em>"What's that thing that makes computers learn?"</em> — a smart librarian understands you mean <strong>Machine Learning</strong> and brings you the right book. A basic keyword search would find nothing because the words don't match exactly.</p>
                     </div>
                     <div>
-                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />How it works in MuzamilAI</h3>
+                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />How it works in EduAssistant</h3>
                       <ol className="space-y-2">
                         {[
                           "Your question is converted into a mathematical vector using TF-IDF (Term Frequency–Inverse Document Frequency)",
@@ -1176,14 +1176,14 @@ export default function Home() {
                   <div className="p-6 space-y-6">
                     <div>
                       <h3 className="font-bold text-foreground mb-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />What is Curated Data?</h3>
-                      <p className="text-muted-foreground text-sm leading-relaxed">Curated Data means the information MuzamilAI uses has been <strong>hand-picked, verified, and organised</strong> by humans — not scraped randomly from the internet. Every Q&A entry in the knowledge base was carefully written or approved to ensure it is accurate, clear, and trustworthy. This is the opposite of an AI that "makes things up."</p>
+                      <p className="text-muted-foreground text-sm leading-relaxed">Curated Data means the information EduAssistant uses has been <strong>hand-picked, verified, and organised</strong> by humans — not scraped randomly from the internet. Every Q&A entry in the knowledge base was carefully written or approved to ensure it is accurate, clear, and trustworthy. This is the opposite of an AI that "makes things up."</p>
                     </div>
                     <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                       <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">💡 Real-life analogy</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">Think of the difference between a <strong>Wikipedia article</strong> (written and reviewed by experts) vs. a random forum post. Curated data is like having a professor personally write every answer — you know it's correct before the AI even uses it.</p>
                     </div>
                     <div>
-                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />How it works in MuzamilAI</h3>
+                      <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-primary inline-block" />How it works in EduAssistant</h3>
                       <ol className="space-y-2">
                         {[
                           "99+ Q&A pairs are stored in a PostgreSQL database — each one hand-crafted",
@@ -1229,7 +1229,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Technology Stack</h2>
-            <p className="text-muted-foreground text-lg">Modern technologies powering MuzamilAI.</p>
+            <p className="text-muted-foreground text-lg">Modern technologies powering EduAssistant.</p>
           </div>
           
           <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
@@ -1291,7 +1291,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">Platform Capabilities</h2>
-            <p className="text-muted-foreground">Everything that's live and working in MuzamilAI right now.</p>
+            <p className="text-muted-foreground">Everything that's live and working in EduAssistant right now.</p>
           </div>
           
           <p className="text-center text-sm text-muted-foreground mb-8 -mt-8">

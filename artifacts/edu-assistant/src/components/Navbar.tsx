@@ -37,7 +37,7 @@ export function Navbar() {
                 <GraduationCap className="w-6 h-6 text-primary" />
               </div>
               <span className="font-display font-bold text-xl text-foreground">
-                Muzamil<span className="text-primary">AI</span>
+                Edu<span className="text-primary">Assistant</span>
               </span>
             </Link>
           </div>
