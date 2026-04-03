@@ -594,7 +594,7 @@ export default function Chat() {
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background" />
             </div>
             <div>
-              <h1 className="font-bold text-sm text-foreground">AskEdu AI</h1>
+              <h1 className="font-bold text-sm text-foreground">MuzamilAI</h1>
               <p className="text-xs text-green-500 font-medium">● Online</p>
             </div>
           </div>
@@ -768,7 +768,7 @@ export default function Chat() {
               className="flex items-center gap-2 text-xs text-muted-foreground"
             >
               <Sparkles className="w-3 h-3" />
-              <span>Ask anything — AskEdu knows it all</span>
+              <span>Ask anything — MuzamilAI knows it all</span>
             </motion.div>
           </motion.div>
         ) : (
@@ -1040,7 +1040,7 @@ export default function Chat() {
             </button>
           </form>
           <p className="text-center text-xs text-muted-foreground mt-2">
-            AskEdu · Ask anything, learn everything
+            MuzamilAI · Ask anything, learn everything
           </p>
         </div>
       </div>
