@@ -27,6 +27,8 @@ import {
   Landmark,
   PenLine,
   Heart,
+  Shuffle,
+  FileText,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -187,6 +189,28 @@ const SUGGESTIONS = [
   { icon: Utensils,     label: "How do I make a simple pasta sauce?",    category: "Cooking" },
   { icon: PenLine,      label: "Write a short poem about the ocean",     category: "Creative" },
   { icon: Heart,        label: "What are 5 habits for better sleep?",    category: "Health" },
+];
+
+const QUICK_ACTIONS = [
+  { icon: Brain,     label: "Explain a concept",  color: "#8b5cf6", prompt: "Explain "          },
+  { icon: PenLine,   label: "Help me write",       color: "#ec4899", prompt: "Help me write "    },
+  { icon: Calculator,label: "Solve a problem",     color: "#3b82f6", prompt: "Solve: "           },
+  { icon: FileText,  label: "Summarize a topic",   color: "#10b981", prompt: "Summarize "        },
+  { icon: Code2,     label: "Write some code",     color: "#f59e0b", prompt: "Write code to "   },
+  { icon: Shuffle,   label: "Surprise me",         color: "#ef4444", prompt: "__surprise__"      },
+];
+
+const SURPRISE_QUESTIONS = [
+  "What is the most distant object ever observed in the universe?",
+  "How do black holes actually form?",
+  "What is quantum entanglement in simple terms?",
+  "Why do we dream and what happens in our brain when we sleep?",
+  "How does the internet actually work from your browser to a server?",
+  "What is the difference between DNA and RNA?",
+  "How did ancient Egyptians build the pyramids?",
+  "What would happen if you fell into a black hole?",
+  "How does the human immune system fight viruses?",
+  "Write a short story about an AI that discovers emotions",
 ];
 
 function getGreeting() {
@@ -419,6 +443,16 @@ export default function Chat() {
     textareaRef.current?.focus();
   };
 
+  const handleQuickAction = (prompt: string) => {
+    if (prompt === "__surprise__") {
+      const random = SURPRISE_QUESTIONS[Math.floor(Math.random() * SURPRISE_QUESTIONS.length)];
+      setInput(random);
+    } else {
+      setInput(prompt);
+    }
+    textareaRef.current?.focus();
+  };
+
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     // If user manually edits after mic, cancel the auto-speak flag
@@ -580,83 +614,54 @@ export default function Chat() {
             </button>
           </div>
         ) : messages.length === 0 ? (
-          /* ── Welcome / Empty State ── */
+          /* ── Welcome / Empty State — clean ChatGPT-style ── */
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="h-full flex flex-col items-center justify-center text-center px-4"
+            transition={{ duration: 0.5 }}
+            className="h-full flex flex-col items-center justify-center text-center px-6"
           >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.4 }}
-              className="relative mb-6"
+            {/* Main heading */}
+            <motion.h2
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.5 }}
+              className="text-3xl md:text-4xl font-bold text-foreground mb-10 tracking-tight"
             >
-              <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center border border-primary/20 shadow-lg">
-                <Bot className="w-10 h-10 text-primary" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-background">
-                <Sparkles className="w-3 h-3 text-white" />
-              </div>
+              What can I help with?
+            </motion.h2>
+
+            {/* Quick action pill chips */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="flex flex-wrap justify-center gap-3 max-w-xl mb-10"
+            >
+              {QUICK_ACTIONS.map((action, i) => (
+                <motion.button
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 + i * 0.06, duration: 0.3 }}
+                  onClick={() => handleQuickAction(action.prompt)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-border bg-card hover:bg-secondary/70 hover:border-primary/40 hover:shadow-md transition-all text-sm font-medium text-foreground shadow-sm active:scale-95"
+                >
+                  <action.icon className="w-4 h-4 shrink-0" style={{ color: action.color }} />
+                  {action.label}
+                </motion.button>
+              ))}
             </motion.div>
 
+            {/* Subtle powered-by badge */}
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
-              className="mb-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
+              className="flex items-center gap-2 text-xs text-muted-foreground"
             >
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                {getGreeting()}, {user.username}! 👋
-              </h2>
-              <p className="text-muted-foreground text-base max-w-md mx-auto leading-relaxed">
-                I'm <span className="text-primary font-semibold">EduAssistant</span> — your AI assistant powered by GPT + Gemini. Ask me <em>anything</em> — science, maths, history, coding, cooking, creative writing, and more.
-              </p>
-            </motion.div>
-
-            {/* AI Greeting Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-              className="w-full max-w-lg mb-8 p-4 rounded-2xl bg-primary/5 border border-primary/20 text-left"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    Hi! I'm powered by <strong>OpenAI GPT</strong> and <strong>Google Gemini</strong> working together — like having both in one place. I can answer <strong>any question</strong> on any topic: science, maths, history, coding, cooking, health, creative writing, or anything else on your mind. Just ask! 🚀
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Suggestion Chips */}
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.4 }}
-              className="w-full max-w-lg"
-            >
-              <p className="text-xs text-muted-foreground font-medium mb-3 text-left">Try asking:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {SUGGESTIONS.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSuggestion(s.label)}
-                    className="flex items-center gap-3 p-3 text-sm text-left border border-border rounded-xl bg-card hover:bg-secondary/50 hover:border-primary/40 hover:shadow-sm transition-all group"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <s.icon className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                    <span className="text-foreground flex-1 leading-tight">{s.label}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
-                  </button>
-                ))}
-              </div>
+              <Sparkles className="w-3 h-3" />
+              <span>Powered by <strong>GPT-5.2</strong> + <strong>Gemini</strong> — answers any question on any topic</span>
             </motion.div>
           </motion.div>
         ) : (
