@@ -115,7 +115,7 @@ const PIPELINE_DETAILS = [
       "GPT (gpt-4o) receives Gemini's draft + original context and synthesises the final answer",
       "GPT is instructed to produce a ChatGPT-style structured response with sections, emojis, real-world examples",
       "The AI prompt explicitly includes the confidence score so the model can caveat low-confidence answers",
-      "Both model calls happen server-side using Replit AI Integration proxies (no API keys exposed to client)"
+      "Both model calls happen server-side through secure AI Integration proxies (no API keys exposed to client)"
     ],
     code: `// Stage 1: Gemini draft\nconst draft = await gemini.generate({ prompt: geminiPrompt });\n// Stage 2: GPT synthesis\nconst final = await openai.chat({ messages: gptMessages(draft) });`,
     output: "Final structured AI answer with confidence score attached"

@@ -53,7 +53,7 @@ export function Footer() {
             © {new Date().getFullYear()} MuzamilAI by Muzamil Arshid. Open Source Project.
           </p>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            Built with <span className="text-primary font-medium">Replit</span>
+            Built by <span className="text-primary font-medium">Muzamil Arshid</span>
           </div>
         </div>
       </div>
