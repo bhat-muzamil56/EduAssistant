@@ -768,7 +768,7 @@ export default function Chat() {
               className="flex items-center gap-2 text-xs text-muted-foreground"
             >
               <Sparkles className="w-3 h-3" />
-              <span>Powered by <strong>GPT-5.2</strong> + <strong>Gemini</strong> — answers any question on any topic</span>
+              <span>Ask anything — EduAssistant knows it all</span>
             </motion.div>
           </motion.div>
         ) : (
@@ -1040,7 +1040,7 @@ export default function Chat() {
             </button>
           </form>
           <p className="text-center text-xs text-muted-foreground mt-2">
-            Powered by OpenAI GPT &amp; Google Gemini · Answers grounded in curated CS/AI materials
+            EduAssistant · Your intelligent AI learning companion
           </p>
         </div>
       </div>
