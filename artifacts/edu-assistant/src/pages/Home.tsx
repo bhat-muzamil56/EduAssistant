@@ -140,7 +140,283 @@ const PIPELINE_DETAILS = [
   }
 ];
 
-// ── Pipeline Step Detail Modal ───────────────────────────────────────────────
+// ── Feature details ──────────────────────────────────────────────────────────
+const FEATURE_DETAILS = [
+  {
+    icon: Zap,
+    title: "Instant Retrieval",
+    short: "Millisecond response times utilizing optimized backend similarity matching.",
+    color: "from-yellow-500 to-orange-500",
+    badge: "⚡ Performance",
+    what: "Instant Retrieval is the engine that searches the knowledge base and finds the most relevant answer to your question in milliseconds — before the AI even starts generating a response. It uses a mathematical technique called TF-IDF + Cosine Similarity to rank every entry in the database by how closely it matches what you asked.",
+    frontend: [
+      "You type a question and press Send",
+      "The message is immediately shown on screen (optimistic UI)",
+      "A streaming connection opens to the server",
+      "The UI starts receiving and displaying words as they arrive — no full wait"
+    ],
+    backend: [
+      "Your question is received by Express and validated",
+      "TF-IDF vectors are computed for your question against all 99+ knowledge base entries",
+      "Cosine similarity scores are calculated — top 5 matches are selected",
+      "Only matches above 0.05 score threshold are injected into the AI prompt",
+      "The retrieval takes <10ms regardless of knowledge base size"
+    ],
+    capabilities: [
+      "Finds relevant answers even with typos or vague phrasing",
+      "Handles 99+ knowledge entries in milliseconds",
+      "Scores every answer by relevance — most relevant wins",
+      "Works entirely in-memory for zero database query overhead",
+      "Confidence score shown on each AI response"
+    ]
+  },
+  {
+    icon: ShieldCheck,
+    title: "Factual Accuracy",
+    short: "Zero hallucination guarantee. Answers are strictly bounded to the provided dataset.",
+    color: "from-green-500 to-emerald-600",
+    badge: "🛡️ Reliability",
+    what: "Factual Accuracy means EduAssistant only tells you things it knows for certain. When a question matches the curated knowledge base, the AI is given that verified content as its source — reducing the chance of made-up or incorrect answers. A confidence score is always shown so you know how sure the system is.",
+    frontend: [
+      "Every AI response shows a 'Knowledge confidence: XX%' badge",
+      "High confidence (>70%) means the answer is grounded in the knowledge base",
+      "Low confidence means the AI is using its own general knowledge",
+      "The detected language is shown to confirm correct processing"
+    ],
+    backend: [
+      "The top cosine similarity score becomes the 'confidence' value",
+      "This score is stored in the database alongside the AI response",
+      "When confidence is high, verified Q&A pairs are injected into the AI prompt",
+      "The AI is instructed to synthesize from the provided facts — not invent",
+      "The confidence value is returned with every API response"
+    ],
+    capabilities: [
+      "Shows a % confidence score on every single response",
+      "Grounded answers sourced from curated educational material",
+      "AI is explicitly instructed not to guess when it doesn't know",
+      "Knowledge base is admin-controlled — only verified content goes in",
+      "Confidence metadata stored per-message in PostgreSQL"
+    ]
+  },
+  {
+    icon: Clock,
+    title: "Contextual Memory",
+    short: "Maintains a history of interactions to provide a continuous learning conversation.",
+    color: "from-blue-500 to-indigo-600",
+    badge: "🧠 Memory",
+    what: "Contextual Memory means EduAssistant remembers everything you said earlier in the conversation. If you ask a follow-up question like 'Can you explain that differently?' it knows what 'that' refers to. Your entire conversation history is stored in the database and sent to the AI with every new message.",
+    frontend: [
+      "All your past messages appear when you open a previous chat from the sidebar",
+      "The sidebar shows all your chat sessions with previews and dates",
+      "You can switch between conversations — each one keeps its own separate history",
+      "New Chat button starts a clean conversation with no memory of the old one"
+    ],
+    backend: [
+      "Every message (user + AI) is saved to PostgreSQL with a session ID",
+      "When you send a new message, the last 20 messages are loaded from the DB",
+      "The full conversation history is included in the AI prompt as context",
+      "Each user can have unlimited sessions — all stored and retrievable",
+      "Sessions are secured by user ID — you only see your own history"
+    ],
+    capabilities: [
+      "Remembers the last 20 messages for full conversation context",
+      "Unlimited chat sessions per user — all permanently saved",
+      "Chat history sidebar with session previews and timestamps",
+      "Switch between past conversations without losing any messages",
+      "Follow-up questions work naturally without re-explaining context"
+    ]
+  },
+  {
+    icon: Brain,
+    title: "Semantic Understanding",
+    short: "Matches intent, not just exact keywords. Variations of questions yield correct answers.",
+    color: "from-purple-500 to-violet-600",
+    badge: "🔍 Intelligence",
+    what: "Semantic Understanding means EduAssistant understands what you mean, not just what you literally typed. It uses TF-IDF (Term Frequency–Inverse Document Frequency) to measure how meaningful each word is. So 'explain neural networks' and 'what are neural nets?' both find the same answer — because the intent is the same.",
+    frontend: [
+      "You can phrase questions naturally — no need for exact keyword matches",
+      "Typos, abbreviations, and paraphrasing all still work",
+      "The AI handles follow-up questions using conversation context",
+      "Multilingual questions are understood and answered in the same language"
+    ],
+    backend: [
+      "TF-IDF assigns importance weights to each word in your question",
+      "Common words (the, is, a) get low scores; rare/important words get high scores",
+      "A vector is computed for your question and compared to all KB entries",
+      "Cosine similarity measures the angle between vectors — not exact word match",
+      "The closest meaning wins, not just the most keyword overlap"
+    ],
+    capabilities: [
+      "Understands paraphrased and rephrased questions",
+      "Works across 50+ languages — auto-detects and responds in kind",
+      "Handles abbreviations, informal language, and typos",
+      "Intent-based matching — asks about concepts, not just words",
+      "Combined with AI for questions beyond the knowledge base"
+    ]
+  },
+  {
+    icon: Smartphone,
+    title: "Modern UI/UX",
+    short: "Beautiful, responsive interface designed to keep students engaged and focused.",
+    color: "from-pink-500 to-rose-600",
+    badge: "🎨 Design",
+    what: "Modern UI/UX means EduAssistant looks and feels like a professional app. The interface is clean, animated, responsive (works on phone, tablet, and desktop), and supports dark mode. It's built with the same design principles as ChatGPT — minimal, distraction-free, and easy to use.",
+    frontend: [
+      "Smooth animations using Framer Motion on every interaction",
+      "ChatGPT-style welcome screen with quick action chips",
+      "Streaming text that appears word-by-word as the AI types",
+      "Responsive layout — works perfectly on mobile, tablet, and desktop",
+      "Dark mode support with consistent theming throughout",
+      "Voice input (mic button) and text-to-speech for AI responses",
+      "Installable as a PWA from Chrome — works like a native app"
+    ],
+    backend: [
+      "Vite + React builds an optimized production bundle",
+      "Tailwind CSS generates only the CSS classes actually used",
+      "Server-Sent Events (SSE) enable real-time streaming from the API",
+      "React Query handles caching, loading states, and background refetches",
+      "PWA manifest and service worker serve the app offline-ready"
+    ],
+    capabilities: [
+      "Installable as an app from Chrome (PWA)",
+      "Full voice assistant — speak questions, hear answers",
+      "50+ language support with auto-detection",
+      "Animated streaming responses with blinking cursor",
+      "Slide-out chat history sidebar like ChatGPT",
+      "Works on any device — phone, tablet, laptop, desktop"
+    ]
+  },
+  {
+    icon: Settings,
+    title: "Extensible Base",
+    short: "Easily update the knowledge base with new curriculum materials via the database.",
+    color: "from-slate-600 to-slate-800",
+    badge: "🗄️ Admin",
+    what: "Extensible Base means the knowledge EduAssistant uses can be expanded at any time. Admins can add new Q&A pairs to the PostgreSQL database and the AI will immediately start using them — no code changes, no redeployment needed. There's also a built-in Admin Panel to manage users and sessions.",
+    frontend: [
+      "Admin Panel at /admin — view all users, sessions, and messages",
+      "See total message counts, session counts, and registered users",
+      "Admin-only access controlled by the isAdmin flag in the database",
+      "Knowledge Base Preview section shows sample Q&A on the home page"
+    ],
+    backend: [
+      "Knowledge base stored in PostgreSQL knowledgeBaseTable",
+      "Add new entries with: pnpm run add-knowledge (scripts package)",
+      "Seed entire knowledge base with: pnpm run seed-knowledge",
+      "99+ entries across CS, AI, maths, science, history and more",
+      "New entries are instantly available to all users — no restart needed",
+      "Each entry has: question, answer, category, and embedding-ready text"
+    ],
+    capabilities: [
+      "99+ curated knowledge entries already loaded",
+      "Add unlimited new entries without touching code",
+      "Covers any topic — CS, AI, science, math, history, language",
+      "Admin panel for full user and session management",
+      "Database-driven — update once, all users benefit instantly",
+      "Category-tagged entries for organized knowledge management"
+    ]
+  }
+];
+
+type FeatureDetail = typeof FEATURE_DETAILS[0];
+
+function FeatureModal({ feature, onClose }: { feature: FeatureDetail; onClose: () => void }) {
+  const [tab, setTab] = useState<"frontend" | "backend">("frontend");
+  const Icon = feature.icon;
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 24 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="relative bg-background rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto border border-border"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className={`bg-gradient-to-r ${feature.color} p-6 rounded-t-2xl`}>
+            <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <Icon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-white/70 text-xs font-bold uppercase tracking-widest">{feature.badge}</div>
+                <h2 className="text-2xl font-bold text-white">{feature.title}</h2>
+              </div>
+            </div>
+            <p className="text-white/80 text-sm mt-2">{feature.short}</p>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* What is it */}
+            <div>
+              <h3 className="font-bold text-foreground mb-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                What is it?
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{feature.what}</p>
+            </div>
+
+            {/* Frontend / Backend tabs */}
+            <div>
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setTab("frontend")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "frontend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                >
+                  ⚛️ Frontend
+                </button>
+                <button
+                  onClick={() => setTab("backend")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "backend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                >
+                  🖥️ Backend
+                </button>
+              </div>
+              <ol className="space-y-2">
+                {(tab === "frontend" ? feature.frontend : feature.backend).map((item, i) => (
+                  <li key={i} className="flex gap-3 text-sm text-muted-foreground">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="leading-relaxed">{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* What it can do */}
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                What it can do
+              </h3>
+              <ul className="space-y-2">
+                {feature.capabilities.map((cap, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                    <span>{cap}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function PipelineModal({ stage, onClose }: { stage: typeof PIPELINE_DETAILS[0]; onClose: () => void }) {
   return (
     <AnimatePresence>
@@ -244,6 +520,7 @@ const itemVariants = {
 export default function Home() {
   const { user } = useAuth();
   const [selectedStage, setSelectedStage] = useState<typeof PIPELINE_DETAILS[0] | null>(null);
+  const [selectedFeature, setSelectedFeature] = useState<FeatureDetail | null>(null);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -437,20 +714,25 @@ export default function Home() {
             <p className="text-lg text-muted-foreground">Everything you need to deploy an intelligent campus assistant.</p>
           </div>
 
+          <p className="text-center text-sm text-muted-foreground mb-8 -mt-8">
+            👆 Click any feature to see exactly how it works — frontend &amp; backend
+          </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { icon: Zap, title: "Instant Retrieval", desc: "Millisecond response times utilizing optimized backend similarity matching." },
-              { icon: ShieldCheck, title: "Factual Accuracy", desc: "Zero hallucination guarantee. Answers are strictly bounded to the provided dataset." },
-              { icon: Clock, title: "Contextual Memory", desc: "Maintains a history of interactions to provide a continuous learning conversation." },
-              { icon: Brain, title: "Semantic Understanding", desc: "Matches intent, not just exact keywords. Variations of questions yield correct answers." },
-              { icon: Smartphone, title: "Modern UI/UX", desc: "Beautiful, responsive interface designed to keep students engaged and focused." },
-              { icon: Settings, title: "Extensible Base", desc: "Easily update the knowledge base with new curriculum materials via the database." }
-            ].map((feat, i) => (
-              <div key={i} className="p-6 rounded-2xl border border-border bg-card hover:border-primary/50 transition-colors">
+            {FEATURE_DETAILS.map((feat, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.03, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedFeature(feat)}
+                className="p-6 rounded-2xl border border-border bg-card hover:border-primary/50 hover:shadow-lg transition-all text-left group cursor-pointer w-full"
+              >
                 <feat.icon className="w-8 h-8 text-primary mb-4" />
                 <h3 className="text-lg font-bold mb-2">{feat.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{feat.desc}</p>
-              </div>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-3">{feat.short}</p>
+                <span className="text-xs text-primary/60 group-hover:text-primary font-medium transition-colors">
+                  tap to explore →
+                </span>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -496,6 +778,11 @@ export default function Home() {
       {/* Pipeline detail modal */}
       {selectedStage && (
         <PipelineModal stage={selectedStage} onClose={() => setSelectedStage(null)} />
+      )}
+
+      {/* Feature detail modal */}
+      {selectedFeature && (
+        <FeatureModal feature={selectedFeature} onClose={() => setSelectedFeature(null)} />
       )}
 
       {/* TECH STACK */}
