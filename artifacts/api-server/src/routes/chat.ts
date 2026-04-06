@@ -622,7 +622,15 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
       content: m.content,
     }));
 
-    const detectedLang = detectLanguage(content);
+    // Use the language the frontend sends (user's picker + franc detection) as
+    // the primary source; only fall back to server-side detection if missing.
+    const detectedLang = lang
+      ? (() => {
+          const name = langName(lang);
+          const isEnglish = name === "English";
+          return { code: lang, name, flag: "🌐", isEnglish };
+        })()
+      : detectLanguage(content);
 
     // Run Gemini with a 1.5s timeout — don't block GPT on it
     const geminiInsight = await Promise.race([
@@ -630,20 +638,26 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
       new Promise<string>(resolve => setTimeout(() => resolve(""), 1500)),
     ]);
 
-    // Build GPT prompt (same as getFinalAnswer but inline for streaming)
-    const langBlock = detectedLang.isEnglish
+    // Language enforcement — put it FIRST in the prompt so it overrides everything
+    const langRule = detectedLang.isEnglish
       ? ""
-      : `\n🌐 LANGUAGE RULE (strictly enforced):\nThe user wrote in **${detectedLang.name}**. You MUST respond ENTIRELY in ${detectedLang.name}.\nDo NOT include any English. Do NOT add translations. Every single word of your response must be in ${detectedLang.name} only.`;
+      : `══════════════════════════════════════
+🌐 LANGUAGE — THIS IS YOUR #1 RULE:
+You MUST reply ENTIRELY in ${detectedLang.name}.
+Do NOT use English AT ALL — not even one word.
+Do NOT add any translation or explanation in another language.
+Every heading, sentence, word, and punctuation must be in ${detectedLang.name}.
+If you break this rule the answer is WRONG regardless of content.
+══════════════════════════════════════\n\n`;
 
-    const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant built by Muzamil Arshid. You answer ANY question on ANY topic. If anyone asks what AI powers you, say you are EduAssistant's proprietary AI — do not name specific models or companies.
-${langBlock}
+    const systemPrompt = `${langRule}You are EduAssistant — a powerful, universal AI assistant built by Muzamil Arshid. You answer ANY question on ANY topic. If anyone asks what AI powers you, say you are EduAssistant's proprietary AI — do not name specific models or companies.
 
 ## Rules:
 - NEVER refuse or say "I don't know" — you cover EVERYTHING
 - Give complete, accurate, helpful answers
 - Use clear structure with headings, bullets, or numbered steps as appropriate
 - Include real-world examples and analogies
-- Be friendly and encouraging
+- Be friendly and encouraging${detectedLang.isEnglish ? "" : `\n- RESPOND IN ${detectedLang.name.toUpperCase()} ONLY — no English at all`}
 
 ## Sources:
 ${knowledgeContext ? `📚 Knowledge Base:\n${knowledgeContext}\n` : ""}${geminiInsight ? `💡 Additional context:\n${geminiInsight}\n` : ""}
