@@ -330,12 +330,24 @@ export function useChat() {
     await sendMessage(lastUserMsg.content);
   }, [sessionId, token, queryClient, sendMessage, isSending]);
 
-  // Combine confirmed messages with the optimistic (pending) user message
+  // Combine confirmed messages with the optimistic (pending) user message.
+  // Guard against a race condition where React Query updates confirmedMessages
+  // (now including the user's question from the server) at the same time the
+  // optimisticMessage state hasn't been cleared yet — which would show the
+  // user's question twice.
   const confirmedMessages = messagesQuery.data ?? [];
   confirmedMessagesRef.current = confirmedMessages;
-  const allMessages = optimisticMessage
-    ? [...confirmedMessages, optimisticMessage]
-    : confirmedMessages;
+
+  const lastConfirmed = confirmedMessages[confirmedMessages.length - 1];
+  const optimisticAlreadyConfirmed =
+    optimisticMessage &&
+    lastConfirmed?.role === "user" &&
+    lastConfirmed?.content === optimisticMessage.content;
+
+  const allMessages =
+    optimisticMessage && !optimisticAlreadyConfirmed
+      ? [...confirmedMessages, optimisticMessage]
+      : confirmedMessages;
 
   return {
     sessionId,
