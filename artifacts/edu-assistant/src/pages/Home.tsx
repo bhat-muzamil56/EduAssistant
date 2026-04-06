@@ -891,7 +891,7 @@ export default function Home() {
                 <div className="p-4 space-y-3 bg-background min-h-[280px]">
                   {/* User message */}
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                     className="flex justify-end"
                   >
                     <div className="bg-primary text-primary-foreground text-sm rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
@@ -900,7 +900,7 @@ export default function Home() {
                   </motion.div>
                   {/* AI message */}
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                     className="flex gap-2 items-end"
                   >
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">E</div>
@@ -915,7 +915,7 @@ export default function Home() {
                   </motion.div>
                   {/* Second user message */}
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.6 }}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                     className="flex justify-end"
                   >
                     <div className="bg-primary text-primary-foreground text-sm rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
@@ -924,7 +924,7 @@ export default function Home() {
                   </motion.div>
                   {/* Typing indicator */}
                   <motion.div
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
                     className="flex gap-2 items-end"
                   >
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">E</div>
@@ -1386,7 +1386,7 @@ export default function Home() {
               <p className="text-muted-foreground">Sample of curated academic questions and answers.</p>
             </div>
             <div className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-primary/10 text-primary rounded-lg font-medium text-sm">
-              📚 Dataset Size: 50+ Questions
+              📚 Dataset Size: 165 Questions
             </div>
           </div>
           
@@ -1535,7 +1535,7 @@ export default function Home() {
                   <div className="text-xs text-muted-foreground uppercase tracking-wider">Technologies</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-foreground mb-1">50+</div>
+                  <div className="text-2xl font-bold text-foreground mb-1">165</div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider">Knowledge Items</div>
                 </div>
                 <div>

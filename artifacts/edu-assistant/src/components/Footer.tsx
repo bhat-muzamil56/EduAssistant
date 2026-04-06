@@ -19,7 +19,7 @@ export function Footer() {
               Empowering the learning journey with an AI-driven chatbot that understands context, retrieves precise knowledge, and delivers answers instantly.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="p-2.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors">
+              <a href="https://github.com/bhat-muzamil56/EduAssistant" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors">
                 <Github className="w-5 h-5" />
               </a>
             </div>
