@@ -167,6 +167,41 @@ router.get("/stats", adminAuthMiddleware, async (_req: AuthRequest, res) => {
   });
 });
 
+router.get("/users/:userId/history", adminAuthMiddleware, async (req: AuthRequest, res) => {
+  const { userId } = req.params;
+
+  const sessions = await db
+    .select()
+    .from(chatSessionsTable)
+    .where(eq(chatSessionsTable.userId, userId))
+    .orderBy(chatSessionsTable.createdAt);
+
+  const result = await Promise.all(
+    sessions.map(async (session) => {
+      const messages = await db
+        .select()
+        .from(chatMessagesTable)
+        .where(eq(chatMessagesTable.sessionId, session.id))
+        .orderBy(chatMessagesTable.createdAt);
+
+      return {
+        id: session.id,
+        createdAt: session.createdAt.toISOString(),
+        messageCount: messages.length,
+        messages: messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          confidence: m.confidence ?? null,
+          createdAt: m.createdAt.toISOString(),
+        })),
+      };
+    })
+  );
+
+  res.json(result);
+});
+
 router.get("/sessions", adminAuthMiddleware, async (_req: AuthRequest, res) => {
   const sessions = await db
     .select()
