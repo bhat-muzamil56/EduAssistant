@@ -272,6 +272,15 @@ export default function Chat() {
   const [voiceSupported] = useState(
     () => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
   );
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== "undefined" ? navigator.onLine : true);
+
+  useEffect(() => {
+    const online = () => setIsOnline(true);
+    const offline = () => setIsOnline(false);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+  }, []);
 
   useEffect(() => { selectedLangRef.current = selectedLang; }, [selectedLang]);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
@@ -564,6 +573,52 @@ export default function Chat() {
   const charCount = input.length;
   const charWarning = charCount > MAX_CHARS * 0.85;
 
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return "Good morning";
+    if (h >= 12 && h < 17) return "Good afternoon";
+    if (h >= 17 && h < 21) return "Good evening";
+    return "Good night";
+  };
+
+  const DAILY_TIPS = [
+    "The Feynman Technique: explain a concept as if teaching a child to truly master it.",
+    "Spaced repetition beats cramming — review material after 1 day, 3 days, 7 days, then 21 days.",
+    "Active recall (testing yourself) is more effective than re-reading notes.",
+    "The Pomodoro method: 25 minutes focused study, 5 minutes break.",
+    "Writing by hand improves memory retention compared to typing.",
+    "Teaching others what you learned is the fastest way to solidify knowledge.",
+    "Sleep is when your brain consolidates memories — never skip sleep before exams.",
+    "Breaking big tasks into smaller sub-tasks reduces procrastination significantly.",
+    "Reading the summary and headings of a chapter first helps comprehension by 40%.",
+    "Asking 'why?' repeatedly (5 Whys technique) builds deep conceptual understanding.",
+    "The best time to study is when you're naturally alert — not when you're tired.",
+    "Connecting new knowledge to something you already know speeds up learning.",
+    "Mistakes are data — analyzing what went wrong is more valuable than getting it right.",
+    "Mind maps help visual learners organize complex topics into memorable diagrams.",
+    "Interleaved practice (mixing topics) builds stronger long-term memory than blocked practice.",
+    "A quiet environment with no phone boosts focus by up to 200%.",
+    "The first 20 minutes after waking are ideal for memorization tasks.",
+    "Reading aloud improves recall — your brain processes information more deeply.",
+    "Summarizing what you just read in one sentence forces deep understanding.",
+    "Taking a 10-minute walk after studying helps transfer information to long-term memory.",
+    "Using multiple senses (reading + listening + writing) strengthens neural pathways.",
+    "Pretesting yourself before learning makes the actual learning 50% more effective.",
+    "Drinking water improves cognitive performance — even mild dehydration hurts focus.",
+    "Making a question out of every heading as you read transforms passive into active learning.",
+    "The 2-minute rule: if a task takes under 2 minutes, do it immediately — don't defer.",
+    "Chunking information (grouping related items) is how experts remember complex material.",
+    "Music without lyrics (classical, lo-fi) can enhance focus for some learners.",
+    "Goal-setting with specific, measurable targets improves academic performance by 30%.",
+    "Handwriting a one-page summary after a lecture is the single best revision strategy.",
+    "Curiosity activates dopamine — follow what genuinely interests you to learn faster.",
+  ];
+
+  const getDailyTip = () => {
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    return DAILY_TIPS[dayOfYear % DAILY_TIPS.length];
+  };
+
   const formatSessionDate = (iso: string) => {
     const d = new Date(iso);
     const diff = Date.now() - d.getTime();
@@ -578,6 +633,24 @@ export default function Chat() {
     const q = sessionSearch.toLowerCase();
     return (s.title ?? "").toLowerCase().includes(q) || (s.preview ?? "").toLowerCase().includes(q);
   });
+
+  type SessionGroup = { label: string; sessions: typeof filteredSessions };
+  const groupedSessions: SessionGroup[] = (() => {
+    if (sessionSearch.trim()) return [{ label: "Search Results", sessions: filteredSessions }];
+    const now = Date.now();
+    const pinned = filteredSessions.filter(s => s.pinned);
+    const today = filteredSessions.filter(s => !s.pinned && now - new Date(s.createdAt).getTime() < 86400000);
+    const yesterday = filteredSessions.filter(s => !s.pinned && now - new Date(s.createdAt).getTime() >= 86400000 && now - new Date(s.createdAt).getTime() < 172800000);
+    const thisWeek = filteredSessions.filter(s => !s.pinned && now - new Date(s.createdAt).getTime() >= 172800000 && now - new Date(s.createdAt).getTime() < 604800000);
+    const older = filteredSessions.filter(s => !s.pinned && now - new Date(s.createdAt).getTime() >= 604800000);
+    const groups: SessionGroup[] = [];
+    if (pinned.length) groups.push({ label: "📌 Pinned", sessions: pinned });
+    if (today.length) groups.push({ label: "Today", sessions: today });
+    if (yesterday.length) groups.push({ label: "Yesterday", sessions: yesterday });
+    if (thisWeek.length) groups.push({ label: "This Week", sessions: thisWeek });
+    if (older.length) groups.push({ label: "Older", sessions: older });
+    return groups;
+  })();
 
   const lastAssistantMsgId = [...messages].reverse().find(m => m.role === "assistant")?.id;
 
@@ -671,62 +744,66 @@ export default function Chat() {
                     <p className="text-xs text-center">{sessionSearch ? "No chats match your search." : "No history yet. Start chatting!"}</p>
                   </div>
                 ) : (
-                  filteredSessions.map(s => (
-                    <div key={s.id} className="group relative">
-                      {editingSessionId === s.id ? (
-                        <div className="px-3 py-2">
-                          <input
-                            ref={editInputRef}
-                            type="text"
-                            value={editingTitle}
-                            onChange={e => setEditingTitle(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") submitRename(); if (e.key === "Escape") setEditingSessionId(null); }}
-                            onBlur={submitRename}
-                            className="w-full px-3 py-2 text-sm rounded-lg border border-primary bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30"
-                            maxLength={80}
-                          />
-                          <p className="text-xs text-muted-foreground mt-1 px-1">Enter to save · Esc to cancel</p>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { switchSession(s.id); setSidebarOpen(false); }}
-                          className="w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors pr-16"
-                        >
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <p className="text-xs text-muted-foreground font-medium">{formatSessionDate(s.createdAt)}</p>
-                            {s.pinned && <Pin className="w-2.5 h-2.5 text-primary shrink-0" />}
-                          </div>
-                          <p className="text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors font-medium">
-                            {s.title ?? s.preview}
-                          </p>
-                          {s.title && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{s.preview}</p>}
-                        </button>
-                      )}
+                  groupedSessions.map(group => (
+                    <div key={group.label}>
+                      <div className="px-4 pt-3 pb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{group.label}</span>
+                      </div>
+                      {group.sessions.map(s => (
+                        <div key={s.id} className="group relative">
+                          {editingSessionId === s.id ? (
+                            <div className="px-3 py-2">
+                              <input
+                                ref={editInputRef}
+                                type="text"
+                                value={editingTitle}
+                                onChange={e => setEditingTitle(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") submitRename(); if (e.key === "Escape") setEditingSessionId(null); }}
+                                onBlur={submitRename}
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-primary bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                                maxLength={80}
+                              />
+                              <p className="text-xs text-muted-foreground mt-1 px-1">Enter to save · Esc to cancel</p>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { switchSession(s.id); setSidebarOpen(false); }}
+                              className={cn("w-full text-left px-4 py-2.5 hover:bg-secondary/60 transition-colors pr-16",
+                                s.id === sessionId && "bg-primary/5 border-l-2 border-primary")}
+                            >
+                              <p className="text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors font-medium">
+                                {s.title ?? s.preview}
+                              </p>
+                              {s.title && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{s.preview}</p>}
+                            </button>
+                          )}
 
-                      {/* Pin, Rename & Delete buttons */}
-                      {!isGuest && editingSessionId !== s.id && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={e => { e.stopPropagation(); pinSession(s.id); }}
-                            title={s.pinned ? "Unpin" : "Pin to top"}
-                            className={cn("p-1.5 rounded-lg hover:bg-secondary", s.pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}
-                          >
-                            {s.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
-                          </button>
-                          <button
-                            onClick={e => { e.stopPropagation(); startRename(s.id, s.title, s.preview); }}
-                            title="Rename" className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={e => { e.stopPropagation(); setConfirmDelete({ id: s.id, title: s.title ?? s.preview.slice(0, 30) }); }}
-                            title="Delete" className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {/* Pin, Rename & Delete buttons */}
+                          {!isGuest && editingSessionId !== s.id && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={e => { e.stopPropagation(); pinSession(s.id); }}
+                                title={s.pinned ? "Unpin" : "Pin to top"}
+                                className={cn("p-1.5 rounded-lg hover:bg-secondary", s.pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+                              >
+                                {s.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); startRename(s.id, s.title, s.preview); }}
+                                title="Rename" className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); setConfirmDelete({ id: s.id, title: s.title ?? s.preview.slice(0, 30) }); }}
+                                title="Delete" className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
                   ))
                 )}
@@ -901,6 +978,17 @@ export default function Chat() {
         </div>
       </header>
 
+      {/* Offline banner */}
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="w-full bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            You're offline — messages won't send until your connection is restored.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Guest banner */}
       {isGuest && (
         <div className="w-full bg-primary/5 border-b border-primary/20 px-4 py-2 flex items-center justify-center gap-3 text-xs">
@@ -931,6 +1019,10 @@ export default function Chat() {
           /* ── Welcome / Empty State ── */
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
             className="h-full flex flex-col items-center justify-center text-center px-4">
+            <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+              className="text-sm font-medium text-primary mb-1">
+              {getGreeting()}{user ? `, ${user.username}` : ""}!
+            </motion.p>
             <motion.h2 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="text-2xl md:text-4xl font-bold text-foreground mb-6">
               What can I help with?
@@ -964,7 +1056,15 @@ export default function Chat() {
                 </motion.button>
               ))}
             </motion.div>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }}
+              className="flex items-start gap-2.5 max-w-md px-4 py-3 rounded-xl bg-primary/5 border border-primary/15 text-left mb-4">
+              <Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60 mb-0.5">Tip of the day</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{getDailyTip()}</p>
+              </div>
+            </motion.div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
               className="flex items-center gap-2 text-xs text-muted-foreground">
               <Sparkles className="w-3 h-3" />
               <span>Ask anything — EduAssistant knows it all</span>

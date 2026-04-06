@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   ArrowRight, Sparkles, Brain, CheckCircle2, 
   Layers, Database, Code2, Zap, ShieldCheck, 
@@ -754,6 +754,36 @@ function PipelineModal({ stage, onClose }: { stage: typeof PIPELINE_DETAILS[0]; 
   );
 }
 
+// ── Animated Counter Component ───────────────────────────────────────────────
+function AnimatedCounter({ target, suffix = "", duration = 1800 }: { target: number; suffix?: string; duration?: number }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !started.current) {
+        started.current = true;
+        const start = performance.now();
+        const tick = (now: number) => {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setCount(Math.floor(eased * target));
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+    }, { threshold: 0.3 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [target, duration]);
+
+  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+}
+
 // Stagger variants for animations
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -888,6 +918,31 @@ export default function Home() {
                 <span className="text-xs text-primary/60 group-hover:text-primary font-medium mt-2 inline-block transition-colors">tap to learn more →</span>
               </div>
             </motion.button>
+          </div>
+        </div>
+      </section>
+
+      {/* STATS COUNTER */}
+      <section className="py-16 border-t border-b border-border bg-secondary/20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {[
+              { target: 50, suffix: "+", label: "Knowledge Entries", icon: "📚" },
+              { target: 25, suffix: "+", label: "Languages Supported", icon: "🌐" },
+              { target: 10, suffix: "+", label: "Technologies Used", icon: "⚡" },
+              { target: 100, suffix: "%", label: "Open Source", icon: "🔓" },
+            ].map((stat, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.5 }}
+                className="flex flex-col items-center gap-2">
+                <span className="text-3xl">{stat.icon}</span>
+                <div className="text-4xl md:text-5xl font-extrabold text-primary">
+                  <AnimatedCounter target={stat.target} suffix={stat.suffix} />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -1289,6 +1344,65 @@ export default function Home() {
                   tap to explore →
                 </span>
               </motion.button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TESTIMONIALS */}
+      <section className="py-24 bg-secondary/10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary font-medium text-sm mb-4 border border-primary/20">
+              <Sparkles className="w-3.5 h-3.5" /> What learners are saying
+            </motion.div>
+            <motion.h2 initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+              className="text-3xl font-bold">
+              Loved by students worldwide
+            </motion.h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Aisha Rahman", role: "Computer Science Student",
+                avatar: "A", color: "from-violet-500 to-purple-600",
+                text: "EduAssistant explained recursion to me in 3 different ways until I finally got it. No textbook ever did that. The voice mode is amazing for studying on the go.",
+                stars: 5,
+              },
+              {
+                name: "Carlos Mendez", role: "Data Science Learner",
+                avatar: "C", color: "from-blue-500 to-cyan-600",
+                text: "I love that it shows a confidence score on every answer. It's honest when it's unsure and incredibly detailed when it knows. I trust it more than random YouTube videos.",
+                stars: 5,
+              },
+              {
+                name: "Priya Nair", role: "Engineering Student",
+                avatar: "P", color: "from-pink-500 to-rose-600",
+                text: "The multilingual support is unreal — I can ask in Malayalam and get a perfect answer. The chat history saves everything so I never lose my study notes.",
+                stars: 5,
+              },
+            ].map((t, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.15, duration: 0.5 }}
+                className="bg-background border border-border rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-primary/30 transition-all flex flex-col gap-4">
+                <div className="flex gap-1">
+                  {Array.from({ length: t.stars }).map((_, si) => (
+                    <span key={si} className="text-amber-400 text-sm">★</span>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed flex-1">"{t.text}"</p>
+                <div className="flex items-center gap-3 pt-2 border-t border-border">
+                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${t.color} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.role}</p>
+                  </div>
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>
