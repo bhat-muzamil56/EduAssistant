@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { GraduationCap, Lock, User, Mail, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -176,16 +176,21 @@ export default function AuthPage({ initialTab = "login" }: { initialTab?: "login
                     {loading ? "Signing in…" : "Sign In"}
                   </button>
 
-                  <p className="text-center text-sm text-muted-foreground">
-                    Don't have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => switchTab("signup")}
-                      className="text-primary font-medium hover:underline"
-                    >
-                      Sign up for free
-                    </button>
-                  </p>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <Link href="/forgot-password" className="hover:text-primary transition-colors">
+                      Forgot password?
+                    </Link>
+                    <span>
+                      No account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => switchTab("signup")}
+                        className="text-primary font-medium hover:underline"
+                      >
+                        Sign up free
+                      </button>
+                    </span>
+                  </div>
                 </motion.form>
               ) : (
                 <motion.form

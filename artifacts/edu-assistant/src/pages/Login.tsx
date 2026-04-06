@@ -100,12 +100,17 @@ export default function Login() {
             </button>
           </div>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Don't have an account?{" "}
-            <Link href="/signup" className="text-primary font-medium hover:underline">
-              Sign up for free
+          <div className="flex items-center justify-between mt-6 text-sm text-muted-foreground">
+            <Link href="/forgot-password" className="hover:text-primary transition-colors">
+              Forgot password?
             </Link>
-          </p>
+            <span>
+              New here?{" "}
+              <Link href="/signup" className="text-primary font-medium hover:underline">
+                Sign up
+              </Link>
+            </span>
+          </div>
         </form>
 
         <p className="text-center text-sm text-muted-foreground mt-6">

@@ -60,6 +60,9 @@ A full-stack AI-powered Q&A chatbot for students built with:
 - Navbar shows "Sign In" / "Get Started" for guests and username + logout for signed-in users
 - Backend: `POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/auth/me`
 - Passwords hashed with bcryptjs (12 rounds)
+- **Forgot Password**: `POST /api/auth/forgot-password` (generates 8-char uppercase token, expires 1hr); `POST /api/auth/reset-password` (verifies token, updates password); token stored in `password_reset_tokens` table
+- **Profile Page**: `/profile` — shows username, email, join date, total sessions, total messages sent
+- **User Profile Endpoint**: `GET /api/auth/profile` — returns user stats aggregated from chatSessions and chatMessages tables
 
 ### Seeding
 

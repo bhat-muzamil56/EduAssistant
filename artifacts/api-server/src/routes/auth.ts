@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { db } from "@workspace/db";
-import { usersTable, chatSessionsTable, chatMessagesTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { usersTable, chatSessionsTable, chatMessagesTable, passwordResetTokensTable } from "@workspace/db/schema";
+import { eq, and, gt, count } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware, type AuthRequest } from "../middlewares/auth.js";
 
@@ -142,6 +143,85 @@ router.patch("/password", authMiddleware, async (req: AuthRequest, res) => {
   const newHash = await bcrypt.hash(newPassword, 12);
   await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, userId));
   res.json({ success: true });
+});
+
+// Forgot password — generates a secure 8-char uppercase token
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body as { email?: string };
+  if (!email || !email.includes("@")) {
+    res.status(400).json({ error: "A valid email address is required" }); return;
+  }
+
+  const [user] = await db.select({ id: usersTable.id, email: usersTable.email })
+    .from(usersTable).where(eq(usersTable.email, email.toLowerCase().trim())).limit(1);
+
+  if (!user) {
+    res.status(404).json({ error: "No account found with this email address" }); return;
+  }
+
+  const token = crypto.randomBytes(4).toString("hex").toUpperCase();
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await db.insert(passwordResetTokensTable).values({ userId: user.id, token, expiresAt });
+
+  res.json({ resetToken: token, message: "Reset token generated. Use it within 1 hour." });
+});
+
+// Reset password using the token
+router.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body as { token?: string; newPassword?: string };
+  if (!token || !newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "Token and new password (min 6 chars) are required" }); return;
+  }
+
+  const [resetEntry] = await db.select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.token, token.trim().toUpperCase()),
+        eq(passwordResetTokensTable.used, false),
+        gt(passwordResetTokensTable.expiresAt, new Date())
+      )
+    ).limit(1);
+
+  if (!resetEntry) {
+    res.status(400).json({ error: "Invalid or expired reset token. Please request a new one." }); return;
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, resetEntry.userId));
+  await db.update(passwordResetTokensTable).set({ used: true }).where(eq(passwordResetTokensTable.id, resetEntry.id));
+
+  res.json({ success: true, message: "Password reset successfully. You can now sign in." });
+});
+
+// Profile stats
+router.get("/profile", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const [sessionCount] = await db.select({ count: count() }).from(chatSessionsTable).where(eq(chatSessionsTable.userId, userId));
+  const userSessions = await db.select({ id: chatSessionsTable.id }).from(chatSessionsTable).where(eq(chatSessionsTable.userId, userId));
+  
+  let totalMessages = 0;
+  if (userSessions.length > 0) {
+    const sessionIds = userSessions.map(s => s.id);
+    for (const sessionId of sessionIds) {
+      const [msgCount] = await db.select({ count: count() }).from(chatMessagesTable).where(eq(chatMessagesTable.sessionId, sessionId));
+      totalMessages += Number(msgCount.count);
+    }
+  }
+
+  res.json({
+    username: user.username,
+    email: user.email,
+    joinedAt: user.createdAt.toISOString(),
+    totalSessions: Number(sessionCount.count),
+    totalMessages,
+  });
 });
 
 // Delete account and all associated data
