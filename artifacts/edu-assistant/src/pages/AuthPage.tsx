@@ -177,7 +177,7 @@ export default function AuthPage({ initialTab = "login" }: { initialTab?: "login
                   </button>
 
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <Link href="/forgot-password" className="hover:text-primary transition-colors">
+                    <Link href="/forgot-password" className="text-primary hover:underline transition-colors font-medium">
                       Forgot password?
                     </Link>
                     <span>

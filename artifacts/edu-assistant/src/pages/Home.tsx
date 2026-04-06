@@ -809,7 +809,7 @@ export default function Home() {
       <Navbar />
       
       {/* HERO SECTION */}
-      <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
+      <section className="relative pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden">
         {/* Background elements */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-primary/20 blur-[120px]" />
@@ -834,9 +834,22 @@ export default function Home() {
                 </span>
               </motion.h1>
               
-              <motion.p variants={itemVariants} className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed">
+              <motion.p variants={itemVariants} className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
                 Empower your learning journey with an AI-driven chatbot that understands context, retrieves precise knowledge, and delivers answers instantly.
               </motion.p>
+
+              <motion.div variants={itemVariants} className="flex flex-wrap gap-4 mb-8">
+                {[
+                  { icon: "🧠", text: "165 Knowledge Entries" },
+                  { icon: "🌍", text: "50+ Languages" },
+                  { icon: "⚡", text: "Instant Streaming" },
+                ].map((badge, i) => (
+                  <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary border border-border text-sm text-muted-foreground font-medium">
+                    <span>{badge.icon}</span>
+                    <span>{badge.text}</span>
+                  </div>
+                ))}
+              </motion.div>
               
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
                 <Link
@@ -848,24 +861,111 @@ export default function Home() {
                 </Link>
                 <a 
                   href="#about" 
-                  className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-base font-bold bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:-translate-y-1 transition-all duration-300"
+                  className="inline-flex items-center justify-center px-8 py-4 rounded-xl text-base font-bold border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground hover:-translate-y-1 transition-all duration-300"
                 >
                   Learn More
                 </a>
               </motion.div>
             </motion.div>
             
+            {/* Chat UI Preview Mockup */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative hidden lg:block"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="relative hidden lg:flex justify-center items-center"
             >
-              <img 
-                src={`${import.meta.env.BASE_URL}images/hero-abstract.png`} 
-                alt="Abstract AI Visualization" 
-                className="w-full h-auto object-cover rounded-3xl shadow-2xl shadow-primary/10"
-              />
+              <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden">
+                {/* Chat header */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-secondary/30">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-xs font-bold">E</div>
+                  <div>
+                    <div className="text-sm font-semibold">EduAssistant</div>
+                    <div className="flex items-center gap-1 text-xs text-green-500 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                      Online
+                    </div>
+                  </div>
+                </div>
+                {/* Messages */}
+                <div className="p-4 space-y-3 bg-background min-h-[280px]">
+                  {/* User message */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+                    className="flex justify-end"
+                  >
+                    <div className="bg-primary text-primary-foreground text-sm rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
+                      What is Newton's second law?
+                    </div>
+                  </motion.div>
+                  {/* AI message */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}
+                    className="flex gap-2 items-end"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">E</div>
+                    <div className="bg-secondary rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[85%]">
+                      <p className="text-sm text-foreground leading-relaxed">
+                        Newton's second law states that <strong>Force = mass × acceleration</strong> (F = ma). The acceleration of an object depends on the net force applied and its mass.
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 font-medium">✓ 94% confidence</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                  {/* Second user message */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.6 }}
+                    className="flex justify-end"
+                  >
+                    <div className="bg-primary text-primary-foreground text-sm rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[80%]">
+                      Give me a real-world example
+                    </div>
+                  </motion.div>
+                  {/* Typing indicator */}
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
+                    className="flex gap-2 items-end"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">E</div>
+                    <div className="bg-secondary rounded-2xl rounded-bl-sm px-4 py-3">
+                      <div className="flex gap-1 items-center">
+                        <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                        <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.2 }} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                        <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.4 }} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+                {/* Input bar */}
+                <div className="px-4 py-3 border-t border-border bg-secondary/20 flex items-center gap-2">
+                  <div className="flex-1 bg-background border border-border rounded-xl px-3 py-2 text-sm text-muted-foreground">Ask anything...</div>
+                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+              {/* Floating badge */}
+              <motion.div
+                animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -top-4 -right-4 bg-white dark:bg-card border border-border shadow-lg rounded-xl px-3 py-2 flex items-center gap-2"
+              >
+                <span className="text-lg">🎓</span>
+                <div className="text-xs">
+                  <div className="font-bold text-foreground">165 topics</div>
+                  <div className="text-muted-foreground">ready to answer</div>
+                </div>
+              </motion.div>
+              <motion.div
+                animate={{ y: [0, 6, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                className="absolute -bottom-4 -left-4 bg-white dark:bg-card border border-border shadow-lg rounded-xl px-3 py-2 flex items-center gap-2"
+              >
+                <span className="text-lg">⚡</span>
+                <div className="text-xs">
+                  <div className="font-bold text-foreground">Instant answers</div>
+                  <div className="text-muted-foreground">streamed live</div>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
