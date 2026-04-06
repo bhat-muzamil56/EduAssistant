@@ -45,6 +45,37 @@ export function authMiddleware(
   }
 }
 
+// Allows unauthenticated requests through — just sets userId if a valid token is present
+export function optionalAuthMiddleware(
+  req: AuthRequest,
+  _res: Response,
+  next: NextFunction
+) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(); // guest — no userId set
+  }
+
+  const token = authHeader.slice(7);
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return next();
+
+  try {
+    const payload = jwt.verify(token, secret) as {
+      username?: string;
+      userId?: string;
+      type?: string;
+    };
+    if (payload.type === "user" && payload.userId) {
+      req.userId = payload.userId;
+      req.userUsername = payload.username;
+    }
+  } catch {
+    // invalid token — treat as guest
+  }
+  next();
+}
+
 export function adminAuthMiddleware(
   req: AuthRequest,
   res: Response,

@@ -14,7 +14,7 @@ import {
   GetChatMessagesParams,
   SendChatMessageParams,
 } from "@workspace/api-zod";
-import { authMiddleware, type AuthRequest } from "../middlewares/auth.js";
+import { authMiddleware, optionalAuthMiddleware, type AuthRequest } from "../middlewares/auth.js";
 import { detectLanguage } from "../utils/detect-language.js";
 
 const router: IRouter = Router();
@@ -354,7 +354,7 @@ router.post("/sessions", async (req, res) => {
   });
 });
 
-router.get("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequest, res) => {
+router.get("/sessions/:sessionId/messages", optionalAuthMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = GetChatMessagesParams.parse(req.params);
   const userId = req.userId;
 
@@ -389,7 +389,7 @@ router.get("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequ
   );
 });
 
-router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthRequest, res) => {
+router.post("/sessions/:sessionId/messages", optionalAuthMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = SendChatMessageParams.parse(req.params);
   const { content } = SendChatMessageBody.parse(req.body);
   const userId = req.userId;
@@ -485,7 +485,7 @@ router.post("/sessions/:sessionId/messages", authMiddleware, async (req: AuthReq
 
 // ── Streaming endpoint ──────────────────────────────────────────────────────
 // Runs Gemini in parallel (with 1.5s timeout) while streaming GPT token-by-token
-router.post("/sessions/:sessionId/stream", authMiddleware, async (req: AuthRequest, res) => {
+router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: AuthRequest, res) => {
   const { sessionId } = SendChatMessageParams.parse(req.params);
   const { content } = SendChatMessageBody.parse(req.body);
   const lang: string | undefined = typeof req.body.lang === "string" ? req.body.lang : undefined;

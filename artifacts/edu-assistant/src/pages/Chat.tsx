@@ -246,7 +246,7 @@ export default function Chat() {
   const [, navigate] = useLocation();
   const { user, logout, loading: authLoading } = useAuth();
   const {
-    messages, sessions, isInitializing, isLoadingMessages, isSending,
+    messages, sessions, isGuest, isInitializing, isLoadingMessages, isSending,
     streamingContent, sendMessage, newChat, switchSession, error,
   } = useChat();
   const [input, setInput] = useState("");
@@ -422,11 +422,7 @@ export default function Chat() {
   // Cleanup speech on unmount
   useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/");
-    }
-  }, [authLoading, user, navigate]);
+  // No redirect — guests are welcome to chat without logging in
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -475,7 +471,8 @@ export default function Chat() {
 
   const isReady = !isInitializing && !isLoadingMessages;
 
-  if (authLoading || !user) {
+  // Show spinner only while verifying an existing token — guests skip this
+  if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -681,21 +678,56 @@ export default function Chat() {
             </button>
           )}
 
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/60 border border-border text-sm">
-            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-              <span className="text-primary text-xs font-bold">{user.username[0].toUpperCase()}</span>
+          {isGuest ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("/login")}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-border bg-secondary/60 text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all"
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => navigate("/signup")}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+              >
+                Sign up free
+              </button>
             </div>
-            <span className="font-medium text-foreground">{user.username}</span>
-          </div>
-          <button
-            onClick={logout}
-            className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          ) : (
+            <>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/60 border border-border text-sm">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="text-primary text-xs font-bold">{user?.username[0].toUpperCase()}</span>
+                </div>
+                <span className="font-medium text-foreground">{user?.username}</span>
+              </div>
+              <button
+                onClick={logout}
+                className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       </header>
+
+      {/* Guest banner */}
+      {isGuest && (
+        <div className="w-full bg-primary/5 border-b border-primary/20 px-4 py-2.5 flex items-center justify-center gap-3 text-sm">
+          <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-muted-foreground">
+            You're chatting as a <span className="font-semibold text-foreground">guest</span> — your history won't be saved.
+          </span>
+          <button
+            onClick={() => navigate("/signup")}
+            className="ml-1 text-primary font-semibold hover:underline shrink-0"
+          >
+            Sign up free →
+          </button>
+        </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-4xl mx-auto">

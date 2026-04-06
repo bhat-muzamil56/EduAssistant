@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const GUEST_SESSION_KEY = "guest_session_id";
 
 export interface SessionPreview {
   id: string;
@@ -24,14 +25,16 @@ export interface OptimisticMessage {
   createdAt: string;
 }
 
-async function apiFetch(path: string, token: string, options?: RequestInit) {
+async function apiFetch(path: string, token: string | null, options?: RequestInit) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> ?? {}),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(options?.headers ?? {}),
-    },
+    headers,
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
@@ -39,6 +42,8 @@ async function apiFetch(path: string, token: string, options?: RequestInit) {
 
 export function useChat() {
   const { user, token } = useAuth();
+  const isGuest = !user && !token;
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionPreview[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -50,7 +55,15 @@ export function useChat() {
   const { toast } = useToast();
   const sessionsLoaded = useRef(false);
 
-  // Load history list whenever user logs in
+  // ── Guest: restore session from localStorage on mount ──────────────────────
+  useEffect(() => {
+    if (isGuest) {
+      const stored = localStorage.getItem(GUEST_SESSION_KEY);
+      if (stored) setSessionId(stored);
+    }
+  }, [isGuest]);
+
+  // ── Authenticated: load history list whenever user logs in ─────────────────
   const refreshSessions = useCallback(async () => {
     if (!token) return;
     setIsLoadingSessions(true);
@@ -86,13 +99,21 @@ export function useChat() {
     },
   });
 
-  // Create a brand-new session on the server
+  // ── Create a new session (guest or authenticated) ──────────────────────────
   const createNewSession = useCallback(async (): Promise<string | null> => {
-    if (!token) return null;
     setIsInitializing(true);
     try {
-      const data = await apiFetch("/api/chat/new-session", token, { method: "POST" });
-      const newId = data.id as string;
+      let newId: string;
+      if (token) {
+        // Authenticated: create a named session tied to the user
+        const data = await apiFetch("/api/chat/new-session", token, { method: "POST" });
+        newId = data.id as string;
+      } else {
+        // Guest: create an anonymous session
+        const data = await apiFetch("/api/chat/sessions", null, { method: "POST" });
+        newId = data.id as string;
+        localStorage.setItem(GUEST_SESSION_KEY, newId);
+      }
       setSessionId(newId);
       return newId;
     } catch {
@@ -114,13 +135,17 @@ export function useChat() {
 
   // Clear active session → shows the clean welcome screen
   const newChat = useCallback(() => {
+    if (isGuest) {
+      // For guests, clear stored session so a fresh one is created next send
+      localStorage.removeItem(GUEST_SESSION_KEY);
+    }
     setSessionId(null);
-  }, []);
+  }, [isGuest]);
 
-  // Send via streaming — user message appears instantly, AI streams word-by-word
+  // ── Send message (streaming) ───────────────────────────────────────────────
   const sendMessage = useCallback(
     async (content: string, lang?: string) => {
-      if (!content.trim() || !token) return;
+      if (!content.trim()) return;
 
       let sid = sessionId;
       if (!sid) {
@@ -141,12 +166,14 @@ export function useChat() {
       setStreamingContent("");
 
       try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const response = await fetch(`${API_BASE}/api/chat/sessions/${sid}/stream`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers,
           body: JSON.stringify({ content, lang }),
         });
 
@@ -173,7 +200,6 @@ export function useChat() {
               if (event.type === "chunk") {
                 setStreamingContent(prev => (prev ?? "") + event.content);
               } else if (event.type === "done") {
-                // Streaming complete — refresh messages from server
                 setStreamingContent(null);
                 setOptimisticMessage(null);
                 await queryClient.invalidateQueries({
@@ -197,7 +223,7 @@ export function useChat() {
         });
       } finally {
         setIsSending(false);
-        await refreshSessions();
+        if (token) await refreshSessions();
       }
     },
     [sessionId, token, createNewSession, queryClient, refreshSessions, toast]
@@ -212,6 +238,7 @@ export function useChat() {
   return {
     sessionId,
     sessions,
+    isGuest,
     isInitializing,
     isLoadingSessions,
     messages: allMessages,
