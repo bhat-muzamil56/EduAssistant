@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -6,6 +6,8 @@ export const chatSessionsTable = pgTable("chat_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id"),
   title: text("title"),
+  pinned: boolean("pinned").default(false).notNull(),
+  shareToken: text("share_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

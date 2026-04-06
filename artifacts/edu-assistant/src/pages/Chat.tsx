@@ -6,7 +6,8 @@ import {
   Heart, Shuffle, FileText, Menu, X, MessageSquare, Plus, Clock,
   Copy, Check, Download, ThumbsUp, ThumbsDown, Search, Edit2, ArrowDown,
   Globe, Mic, MicOff, Volume2, VolumeX, Radio, ChevronDown, ChevronRight,
-  Trash2, RotateCcw, UserX, User, Settings,
+  Trash2, RotateCcw, UserX, User, Settings, Sun, Moon, Pin, PinOff,
+  Share2, Keyboard, FileSearch, Lock, Eye, EyeOff, Link, LinkOff,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -18,6 +19,7 @@ import "katex/dist/katex.min.css";
 import { useChat } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ── Supported languages ──────────────────────────────────────────────────────
@@ -205,10 +207,11 @@ function ConfirmDialog({ title, description, onConfirm, onCancel, danger = false
 export default function Chat() {
   const [, navigate] = useLocation();
   const { user, token, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const {
-    messages, sessions, isGuest, isInitializing, isLoadingMessages, isSending,
+    sessionId, messages, sessions, isGuest, isInitializing, isLoadingMessages, isSending,
     streamingContent, sendMessage, newChat, switchSession, renameSession,
-    deleteSession, regenerate, error,
+    deleteSession, pinSession, shareSession, revokeShare, summarizeSession, regenerate, error,
   } = useChat();
 
   // ── Core state ─────────────────────────────────────────────────────────────
@@ -233,6 +236,23 @@ export default function Chat() {
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // ── New feature state ──────────────────────────────────────────────────────
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryContent, setSummaryContent] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [cpCurrent, setCpCurrent] = useState("");
+  const [cpNew, setCpNew] = useState("");
+  const [cpConfirm, setCpConfirm] = useState("");
+  const [cpShowCurrent, setCpShowCurrent] = useState(false);
+  const [cpShowNew, setCpShowNew] = useState(false);
+  const [cpLoading, setCpLoading] = useState(false);
+  const [cpError, setCpError] = useState("");
+  const [cpSuccess, setCpSuccess] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -272,13 +292,19 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  // ── Ctrl+K → open sidebar search ──────────────────────────────────────────
+  // ── Ctrl+K → open sidebar search / ? → shortcuts ──────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setSidebarOpen(true);
         setTimeout(() => document.getElementById("session-search")?.focus(), 150);
+      }
+      const active = document.activeElement as HTMLElement;
+      const isTyping = active?.tagName === "TEXTAREA" || active?.tagName === "INPUT";
+      if (e.key === "?" && !isTyping) {
+        e.preventDefault();
+        setShowShortcuts(true);
       }
     };
     window.addEventListener("keydown", handler);
@@ -374,6 +400,54 @@ export default function Chat() {
     } finally {
       setIsDeletingAccount(false);
       setConfirmDeleteAccount(false);
+    }
+  };
+
+  // ── Change password ─────────────────────────────────────────────────────────
+  const handleChangePassword = async () => {
+    if (!token) return;
+    if (!cpCurrent || !cpNew) { setCpError("All fields are required"); return; }
+    if (cpNew.length < 6) { setCpError("New password must be at least 6 characters"); return; }
+    if (cpNew !== cpConfirm) { setCpError("Passwords do not match"); return; }
+    setCpLoading(true); setCpError("");
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/auth/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword: cpCurrent, newPassword: cpNew }),
+      });
+      if (res.ok) {
+        setCpSuccess(true);
+        setCpCurrent(""); setCpNew(""); setCpConfirm("");
+        setTimeout(() => { setCpSuccess(false); setShowChangePassword(false); }, 2000);
+      } else {
+        const data = await res.json();
+        setCpError(data.error ?? "Failed to change password");
+      }
+    } catch { setCpError("Network error. Please try again."); }
+    finally { setCpLoading(false); }
+  };
+
+  // ── Summarize chat ───────────────────────────────────────────────────────────
+  const handleSummarize = async () => {
+    if (!sessionId) return;
+    setSummaryLoading(true); setShowSummary(true); setSummaryContent(null);
+    const result = await summarizeSession(sessionId);
+    setSummaryContent(result ?? "Could not generate summary.");
+    setSummaryLoading(false);
+  };
+
+  // ── Share conversation ───────────────────────────────────────────────────────
+  const handleShare = async () => {
+    if (!sessionId || shareLoading) return;
+    setShareLoading(true);
+    const tok = await shareSession(sessionId);
+    setShareLoading(false);
+    if (tok) {
+      const url = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/share/${tok}`;
+      navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 3000);
     }
   };
 
@@ -618,7 +692,10 @@ export default function Chat() {
                           onClick={() => { switchSession(s.id); setSidebarOpen(false); }}
                           className="w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors pr-16"
                         >
-                          <p className="text-xs text-muted-foreground mb-0.5 font-medium">{formatSessionDate(s.createdAt)}</p>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="text-xs text-muted-foreground font-medium">{formatSessionDate(s.createdAt)}</p>
+                            {s.pinned && <Pin className="w-2.5 h-2.5 text-primary shrink-0" />}
+                          </div>
                           <p className="text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors font-medium">
                             {s.title ?? s.preview}
                           </p>
@@ -626,9 +703,16 @@ export default function Chat() {
                         </button>
                       )}
 
-                      {/* Rename & delete buttons */}
+                      {/* Pin, Rename & Delete buttons */}
                       {!isGuest && editingSessionId !== s.id && (
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={e => { e.stopPropagation(); pinSession(s.id); }}
+                            title={s.pinned ? "Unpin" : "Pin to top"}
+                            className={cn("p-1.5 rounded-lg hover:bg-secondary", s.pinned ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+                          >
+                            {s.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                          </button>
                           <button
                             onClick={e => { e.stopPropagation(); startRename(s.id, s.title, s.preview); }}
                             title="Rename" className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground"
@@ -672,6 +756,34 @@ export default function Chat() {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Dark mode toggle */}
+          <button onClick={toggleTheme} title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          {/* Keyboard shortcuts */}
+          <button onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)"
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors hidden sm:flex">
+            <Keyboard className="w-4 h-4" />
+          </button>
+
+          {/* Summarize chat */}
+          {messages.length > 0 && !isGuest && sessionId && (
+            <button onClick={handleSummarize} title="Summarize this conversation"
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+              <FileSearch className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Share conversation */}
+          {messages.length > 0 && !isGuest && sessionId && (
+            <button onClick={handleShare} title={shareCopied ? "Link copied!" : "Share conversation"}
+              className={cn("p-2 rounded-xl transition-colors", shareCopied ? "text-green-500 bg-green-500/10" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
+              {shareCopied ? <Check className="w-4 h-4" /> : shareLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+            </button>
+          )}
+
           {/* Export */}
           {messages.length > 0 && (
             <button onClick={exportConversation} title="Export conversation"
@@ -761,6 +873,12 @@ export default function Chat() {
                       <p className="font-semibold text-sm text-foreground">{user?.username}</p>
                       <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     </div>
+                    <button
+                      onClick={() => { setShowProfile(false); setShowChangePassword(true); setCpError(""); setCpSuccess(false); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                    >
+                      <Lock className="w-4 h-4" /> Change password
+                    </button>
                     <button
                       onClick={() => { setShowProfile(false); logout(); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
@@ -1071,6 +1189,159 @@ export default function Chat() {
           </div>
         </div>
       </div>
+
+      {/* ── Summary Modal ── */}
+      <AnimatePresence>
+        {showSummary && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowSummary(false)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-background border border-border rounded-2xl shadow-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+                    <FileSearch className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-foreground">Conversation Summary</h3>
+                </div>
+                <button onClick={() => setShowSummary(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {summaryLoading ? (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  <p className="text-sm text-muted-foreground">Generating summary with AI…</p>
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none text-foreground">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryContent ?? ""}</ReactMarkdown>
+                </div>
+              )}
+              {!summaryLoading && (
+                <div className="mt-4 flex justify-end">
+                  <button onClick={() => setShowSummary(false)} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">Close</button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Keyboard Shortcuts Modal ── */}
+      <AnimatePresence>
+        {showShortcuts && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowShortcuts(false)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-background border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+                    <Keyboard className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-foreground">Keyboard Shortcuts</h3>
+                </div>
+                <button onClick={() => setShowShortcuts(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { key: "Enter", desc: "Send message" },
+                  { key: "Shift + Enter", desc: "New line in message" },
+                  { key: "Ctrl + K", desc: "Open / search chat history" },
+                  { key: "Escape", desc: "Close sidebar or cancel" },
+                  { key: "?", desc: "Open this shortcuts panel" },
+                ].map(({ key, desc }) => (
+                  <div key={key} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
+                    <span className="text-sm text-muted-foreground">{desc}</span>
+                    <kbd className="px-2 py-0.5 rounded-md bg-secondary border border-border text-xs font-mono font-semibold text-foreground">{key}</kbd>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Change Password Modal ── */}
+      <AnimatePresence>
+        {showChangePassword && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => { if (!cpLoading) setShowChangePassword(false); }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-background border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+                    <Lock className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-foreground">Change Password</h3>
+                </div>
+                <button onClick={() => setShowChangePassword(false)} disabled={cpLoading} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {cpSuccess ? (
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
+                    <Check className="w-6 h-6 text-green-500" />
+                  </div>
+                  <p className="font-semibold text-foreground">Password changed!</p>
+                  <p className="text-sm text-muted-foreground mt-1">Your password has been updated successfully.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Current password</label>
+                    <div className="relative">
+                      <input type={cpShowCurrent ? "text" : "password"} value={cpCurrent} onChange={e => setCpCurrent(e.target.value)}
+                        className="w-full px-3 py-2.5 pr-10 rounded-xl border border-border bg-secondary/30 text-foreground text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                        placeholder="Enter current password" disabled={cpLoading} />
+                      <button type="button" onClick={() => setCpShowCurrent(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {cpShowCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">New password</label>
+                    <div className="relative">
+                      <input type={cpShowNew ? "text" : "password"} value={cpNew} onChange={e => setCpNew(e.target.value)}
+                        className="w-full px-3 py-2.5 pr-10 rounded-xl border border-border bg-secondary/30 text-foreground text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                        placeholder="New password (min 6 chars)" disabled={cpLoading} />
+                      <button type="button" onClick={() => setCpShowNew(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {cpShowNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Confirm new password</label>
+                    <input type="password" value={cpConfirm} onChange={e => setCpConfirm(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") handleChangePassword(); }}
+                      className="w-full px-3 py-2.5 rounded-xl border border-border bg-secondary/30 text-foreground text-sm outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                      placeholder="Confirm new password" disabled={cpLoading} />
+                  </div>
+                  {cpError && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{cpError}</p>}
+                  <button onClick={handleChangePassword} disabled={cpLoading || !cpCurrent || !cpNew || !cpConfirm}
+                    className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-1">
+                    {cpLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Change password"}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

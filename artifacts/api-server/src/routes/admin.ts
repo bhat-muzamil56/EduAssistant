@@ -167,6 +167,68 @@ router.get("/stats", adminAuthMiddleware, async (_req: AuthRequest, res) => {
   });
 });
 
+router.get("/analytics", adminAuthMiddleware, async (_req: AuthRequest, res) => {
+  const [allMessages, allSessions, allUsers, allKnowledge] = await Promise.all([
+    db.select({ id: chatMessagesTable.id, role: chatMessagesTable.role, createdAt: chatMessagesTable.createdAt, sessionId: chatMessagesTable.sessionId }).from(chatMessagesTable).orderBy(chatMessagesTable.createdAt),
+    db.select({ id: chatSessionsTable.id, userId: chatSessionsTable.userId, createdAt: chatSessionsTable.createdAt }).from(chatSessionsTable),
+    db.select({ id: usersTable.id, username: usersTable.username, createdAt: usersTable.createdAt }).from(usersTable),
+    db.select({ category: knowledgeBaseTable.category }).from(knowledgeBaseTable),
+  ]);
+
+  // Daily message counts for last 14 days
+  const daily: Record<string, number> = {};
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    daily[d.toISOString().slice(0, 10)] = 0;
+  }
+  allMessages.forEach(m => {
+    const day = m.createdAt.toISOString().slice(0, 10);
+    if (day in daily) daily[day]++;
+  });
+  const dailyStats = Object.entries(daily).map(([date, count]) => ({ date: date.slice(5), count }));
+
+  // Messages per session
+  const sessionMsgCount: Record<string, number> = {};
+  allMessages.forEach(m => { sessionMsgCount[m.sessionId] = (sessionMsgCount[m.sessionId] ?? 0) + 1; });
+  const avgMsgsPerSession = allSessions.length > 0
+    ? Math.round(Object.values(sessionMsgCount).reduce((a, b) => a + b, 0) / allSessions.length * 10) / 10
+    : 0;
+
+  // User message counts
+  const sessionUserMap: Record<string, string> = {};
+  allSessions.forEach(s => { if (s.userId) sessionUserMap[s.id] = s.userId; });
+  const userMsgCount: Record<string, number> = {};
+  allMessages.filter(m => m.role === "user").forEach(m => {
+    const uid = sessionUserMap[m.sessionId];
+    if (uid) userMsgCount[uid] = (userMsgCount[uid] ?? 0) + 1;
+  });
+  const topUsers = allUsers
+    .map(u => ({ username: u.username, messages: userMsgCount[u.id] ?? 0 }))
+    .sort((a, b) => b.messages - a.messages)
+    .slice(0, 5);
+
+  // Knowledge base category distribution
+  const catCount: Record<string, number> = {};
+  allKnowledge.forEach(k => { const c = k.category ?? "General"; catCount[c] = (catCount[c] ?? 0) + 1; });
+  const categories = Object.entries(catCount).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+
+  // New users per day last 7 days
+  const userDaily: Record<string, number> = {};
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    userDaily[d.toISOString().slice(0, 10)] = 0;
+  }
+  allUsers.forEach(u => {
+    const day = u.createdAt.toISOString().slice(0, 10);
+    if (day in userDaily) userDaily[day]++;
+  });
+  const userGrowth = Object.entries(userDaily).map(([date, count]) => ({ date: date.slice(5), count }));
+
+  res.json({ dailyStats, avgMsgsPerSession, topUsers, categories, userGrowth,
+    totals: { users: allUsers.length, sessions: allSessions.length, messages: allMessages.length, knowledge: allKnowledge.length }
+  });
+});
+
 router.get("/users/:userId/history", adminAuthMiddleware, async (req: AuthRequest, res) => {
   const { userId } = req.params;
 

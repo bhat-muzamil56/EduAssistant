@@ -85,9 +85,17 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 React + Vite frontend for the AI Education Assistant.
 
 - Landing page with hero, about, architecture, features, knowledge base preview, and developer sections
-- Chat page with full-screen ChatGPT-like interface
+- Chat page with full-screen ChatGPT-like interface including:
+  - **Dark/Light mode toggle** — persisted in localStorage, respects system preference on first load
+  - **Pinned chats** — pin sessions to top of sidebar; pin indicator (📌) shown inline
+  - **Share conversation** — generates a public share link; read-only `/share/:token` page for viewers
+  - **Summarize conversation** — AI-generated bullet-point summary modal via GPT
+  - **Change password** — modal in profile dropdown, requires current password verification
+  - **Keyboard shortcuts modal** — opened via `?` key or toolbar button
+  - **19+ other chat features** (see progress summary)
+- Public **ShareView** page at `/share/:token` for shared conversations
 - Uses `@workspace/api-client-react` hooks for API communication
-- Dependencies: framer-motion, react-markdown, remark-gfm, clsx, tailwind-merge
+- Dependencies: framer-motion, react-markdown, remark-gfm, clsx, tailwind-merge, recharts
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 

@@ -123,6 +123,27 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
   res.json({ id: user.id, username: user.username, email: user.email, createdAt: user.createdAt.toISOString() });
 });
 
+// Change password
+router.patch("/password", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+  if (!currentPassword || !newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "Current password and new password (min 6 chars) are required" }); return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) { res.status(401).json({ error: "Current password is incorrect" }); return; }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, userId));
+  res.json({ success: true });
+});
+
 // Delete account and all associated data
 router.delete("/account", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.userId;

@@ -3,8 +3,13 @@ import { useLocation } from "wouter";
 import {
   GraduationCap, LogOut, BookOpen, MessageSquare, Plus,
   Pencil, Trash2, ChevronDown, ChevronUp, X, Check, AlertCircle,
-  Search, Loader2, Users, BarChart3, Mail, CalendarDays, History, Clock
+  Search, Loader2, Users, BarChart3, Mail, CalendarDays, History, Clock,
+  TrendingUp, Activity
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell
+} from "recharts";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -832,11 +837,151 @@ function UsersTab() {
   );
 }
 
+interface AnalyticsData {
+  dailyStats: { date: string; count: number }[];
+  avgMsgsPerSession: number;
+  topUsers: { username: string; messages: number }[];
+  categories: { name: string; count: number }[];
+  userGrowth: { date: string; count: number }[];
+  totals: { users: number; sessions: number; messages: number; knowledge: number };
+}
+
+const PIE_COLORS = ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6"];
+
+function AnalyticsTab() {
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/admin/analytics`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setData(d))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-24">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+  if (!data) return <p className="text-muted-foreground text-center py-16">Failed to load analytics.</p>;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: "Total Users", value: data.totals.users, color: "text-blue-500", bg: "bg-blue-500/10" },
+          { label: "Total Sessions", value: data.totals.sessions, color: "text-violet-500", bg: "bg-violet-500/10" },
+          { label: "Total Messages", value: data.totals.messages, color: "text-green-500", bg: "bg-green-500/10" },
+          { label: "Avg Msgs/Session", value: data.avgMsgsPerSession, color: "text-orange-500", bg: "bg-orange-500/10" },
+        ].map(({ label, value, color, bg }) => (
+          <div key={label} className="border border-border rounded-2xl p-4 bg-card">
+            <div className={`text-2xl font-bold ${color} mb-0.5`}>{value}</div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Messages per day (14 days) */}
+      <div className="border border-border rounded-2xl p-5 bg-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-sm">Messages per Day (Last 14 Days)</h3>
+        </div>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={data.dailyStats} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+            <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.75rem", fontSize: "12px" }} />
+            <Bar dataKey="count" name="Messages" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* User growth */}
+        <div className="border border-border rounded-2xl p-5 bg-card">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-4 h-4 text-green-500" />
+            <h3 className="font-semibold text-sm">New Users (Last 7 Days)</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={data.userGrowth} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.75rem", fontSize: "12px" }} />
+              <Line type="monotone" dataKey="count" name="New Users" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Knowledge base categories */}
+        {data.categories.length > 0 ? (
+          <div className="border border-border rounded-2xl p-5 bg-card">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="w-4 h-4 text-violet-500" />
+              <h3 className="font-semibold text-sm">Knowledge Base Categories</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <PieChart width={120} height={120}>
+                <Pie data={data.categories} dataKey="count" cx={55} cy={55} innerRadius={30} outerRadius={55}>
+                  {data.categories.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+              </PieChart>
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                {data.categories.slice(0, 6).map((cat, i) => (
+                  <div key={cat.name} className="flex items-center gap-2 text-xs min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                    <span className="text-foreground truncate flex-1">{cat.name}</span>
+                    <span className="text-muted-foreground font-medium shrink-0">{cat.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-border rounded-2xl p-5 bg-card flex items-center justify-center text-muted-foreground text-sm">
+            No knowledge base entries yet
+          </div>
+        )}
+      </div>
+
+      {/* Top users */}
+      {data.topUsers.length > 0 && (
+        <div className="border border-border rounded-2xl p-5 bg-card">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-4 h-4 text-blue-500" />
+            <h3 className="font-semibold text-sm">Most Active Users</h3>
+          </div>
+          <div className="space-y-2">
+            {data.topUsers.map((u, i) => {
+              const max = data.topUsers[0].messages || 1;
+              return (
+                <div key={u.username} className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+                  <span className="text-sm font-medium text-foreground w-28 shrink-0 truncate">{u.username}</span>
+                  <div className="flex-1 bg-secondary rounded-full h-2">
+                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${(u.messages / max) * 100}%` }} />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-12 text-right">{u.messages} msgs</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Stats { totalUsers: number; totalSessions: number; totalMessages: number; }
 
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
-  const [tab, setTab] = useState<"users" | "knowledge" | "sessions">("users");
+  const [tab, setTab] = useState<"users" | "knowledge" | "sessions" | "analytics">("users");
   const [authChecked, setAuthChecked] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
 
@@ -951,11 +1096,21 @@ export default function AdminDashboard() {
             <MessageSquare className="w-4 h-4" />
             Chat Sessions
           </button>
+          <button
+            onClick={() => setTab("analytics")}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              tab === "analytics" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Analytics
+          </button>
         </div>
 
         {tab === "users" && <UsersTab />}
         {tab === "knowledge" && <KnowledgeTab />}
         {tab === "sessions" && <SessionsTab />}
+        {tab === "analytics" && <AnalyticsTab />}
       </main>
     </div>
   );

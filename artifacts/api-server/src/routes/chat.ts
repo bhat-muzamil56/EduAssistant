@@ -322,13 +322,21 @@ router.get("/user-sessions", authMiddleware, async (req: AuthRequest, res) => {
         id: session.id,
         createdAt: session.createdAt.toISOString(),
         title: session.title ?? null,
+        pinned: session.pinned,
+        shareToken: session.shareToken ?? null,
         preview: firstMsg[0]?.content?.slice(0, 80) ?? null,
       };
     })
   );
 
-  // Only return sessions that have at least one message
-  res.json(sessionsWithPreview.filter(s => s.preview !== null));
+  // Only return sessions that have at least one message; pinned sessions first
+  const filtered = sessionsWithPreview.filter(s => s.preview !== null);
+  filtered.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return 0;
+  });
+  res.json(filtered);
 });
 
 // Rename a session
@@ -693,4 +701,102 @@ Synthesize all knowledge into one perfect, comprehensive answer.`;
   }
 });
 
+// Toggle pin on a session
+router.patch("/sessions/:sessionId/pin", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [session] = await db.select().from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId))).limit(1);
+  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+
+  const [updated] = await db.update(chatSessionsTable)
+    .set({ pinned: !session.pinned })
+    .where(eq(chatSessionsTable.id, sessionId))
+    .returning();
+  res.json({ pinned: updated.pinned });
+});
+
+// Generate a public share link for a session
+router.post("/sessions/:sessionId/share", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [session] = await db.select().from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId))).limit(1);
+  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+
+  const token = session.shareToken ?? crypto.randomUUID();
+  await db.update(chatSessionsTable).set({ shareToken: token }).where(eq(chatSessionsTable.id, sessionId));
+  res.json({ token });
+});
+
+// Revoke share link
+router.delete("/sessions/:sessionId/share", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [session] = await db.select().from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId))).limit(1);
+  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+
+  await db.update(chatSessionsTable).set({ shareToken: null }).where(eq(chatSessionsTable.id, sessionId));
+  res.json({ success: true });
+});
+
+// Public: view shared session by token
+router.get("/share/:token", async (req, res) => {
+  const { token } = req.params;
+  const [session] = await db.select().from(chatSessionsTable)
+    .where(eq(chatSessionsTable.shareToken, token)).limit(1);
+  if (!session) { res.status(404).json({ error: "Shared conversation not found" }); return; }
+
+  const messages = await db.select().from(chatMessagesTable)
+    .where(eq(chatMessagesTable.sessionId, session.id))
+    .orderBy(chatMessagesTable.createdAt);
+
+  res.json({
+    title: session.title ?? "Shared Conversation",
+    createdAt: session.createdAt.toISOString(),
+    messages: messages.map(m => ({ id: m.id, role: m.role, content: m.content, createdAt: m.createdAt.toISOString() })),
+  });
+});
+
+// Summarize a session using AI
+router.post("/sessions/:sessionId/summarize", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [session] = await db.select().from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId))).limit(1);
+  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+
+  const messages = await db.select().from(chatMessagesTable)
+    .where(eq(chatMessagesTable.sessionId, sessionId))
+    .orderBy(chatMessagesTable.createdAt);
+
+  if (messages.length === 0) { res.status(400).json({ error: "No messages to summarize" }); return; }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      max_completion_tokens: 600,
+      messages: [
+        { role: "system", content: "You are a helpful assistant. Summarize the following conversation in 3-5 clear bullet points. Highlight the main topics discussed and key takeaways. Be concise and informative." },
+        ...messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+        { role: "user", content: "Please summarize this conversation now." },
+      ],
+    });
+    const summary = completion.choices[0]?.message?.content ?? "Could not generate summary.";
+    res.json({ summary });
+  } catch {
+    res.status(500).json({ error: "Failed to generate summary" });
+  }
+});
+
 export default router;
+

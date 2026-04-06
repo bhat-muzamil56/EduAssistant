@@ -14,6 +14,8 @@ export interface SessionPreview {
   id: string;
   createdAt: string;
   title: string | null;
+  pinned: boolean;
+  shareToken: string | null;
   preview: string;
 }
 
@@ -159,6 +161,60 @@ export function useChat() {
     }
   }, [token]);
 
+  // Toggle pin on a session
+  const pinSession = useCallback(async (id: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch(`/api/chat/sessions/${id}/pin`, token, { method: "PATCH" });
+      setSessions(prev => {
+        const updated = prev.map(s => s.id === id ? { ...s, pinned: data.pinned as boolean } : s);
+        updated.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return 0;
+        });
+        return updated;
+      });
+    } catch {
+      // silently ignore
+    }
+  }, [token]);
+
+  // Generate or get share link for a session
+  const shareSession = useCallback(async (id: string): Promise<string | null> => {
+    if (!token) return null;
+    try {
+      const data = await apiFetch(`/api/chat/sessions/${id}/share`, token, { method: "POST" });
+      const tok = data.token as string;
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, shareToken: tok } : s));
+      return tok;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
+  // Revoke share link for a session
+  const revokeShare = useCallback(async (id: string): Promise<void> => {
+    if (!token) return;
+    try {
+      await apiFetch(`/api/chat/sessions/${id}/share`, token, { method: "DELETE" });
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, shareToken: null } : s));
+    } catch {
+      // silently ignore
+    }
+  }, [token]);
+
+  // Summarize a session
+  const summarizeSession = useCallback(async (id: string): Promise<string | null> => {
+    if (!token) return null;
+    try {
+      const data = await apiFetch(`/api/chat/sessions/${id}/summarize`, token, { method: "POST" });
+      return data.summary as string;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
   // Clear active session → shows the clean welcome screen
   const newChat = useCallback(() => {
     if (isGuest) {
@@ -296,6 +352,10 @@ export function useChat() {
     switchSession,
     renameSession,
     deleteSession,
+    pinSession,
+    shareSession,
+    revokeShare,
+    summarizeSession,
     regenerate,
     refreshSessions,
     error: messagesQuery.error,
