@@ -62,15 +62,6 @@ export function Navbar() {
               <>
                 {user ? (
                   <div className="flex items-center gap-3">
-                    {!isChat && (
-                      <Link
-                        href="/chat"
-                        className="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Launch Chat
-                      </Link>
-                    )}
                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50 border border-border">
                       <User className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm font-medium text-foreground">{user.username}</span>
@@ -139,16 +130,6 @@ export function Navbar() {
                       <User className="w-4 h-4" />
                       Signed in as <span className="text-foreground font-semibold">{user.username}</span>
                     </div>
-                    {!isChat && (
-                      <Link
-                        href="/chat"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="w-full flex items-center justify-center px-6 py-3 rounded-xl text-base font-semibold bg-primary text-primary-foreground"
-                      >
-                        <MessageSquare className="w-5 h-5 mr-2" />
-                        Launch Chat
-                      </Link>
-                    )}
                     <button
                       onClick={() => { logout(); setMobileMenuOpen(false); }}
                       className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-base font-medium border border-border hover:bg-destructive/10 hover:text-destructive transition-colors"
