@@ -321,7 +321,6 @@ const CAPABILITY_DETAILS = [
 type CapabilityDetail = typeof CAPABILITY_DETAILS[0];
 
 function CapabilityModal({ capability, onClose }: { capability: CapabilityDetail; onClose: () => void }) {
-  const [tab, setTab] = useState<"frontend" | "backend">("frontend");
   const Icon = capability.icon;
   return (
     <AnimatePresence>
@@ -366,22 +365,12 @@ function CapabilityModal({ capability, onClose }: { capability: CapabilityDetail
             </div>
 
             <div>
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setTab("frontend")}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "frontend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
-                >
-                  ⚛️ Frontend
-                </button>
-                <button
-                  onClick={() => setTab("backend")}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "backend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
-                >
-                  🖥️ Backend
-                </button>
-              </div>
+              <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                How it works
+              </h3>
               <ol className="space-y-2">
-                {(tab === "frontend" ? capability.frontend : capability.backend).map((item, i) => (
+                {[...capability.frontend, ...capability.backend].map((item, i) => (
                   <li key={i} className="flex gap-3 text-sm text-muted-foreground">
                     <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">
                       {i + 1}
@@ -594,7 +583,6 @@ const FEATURE_DETAILS = [
 type FeatureDetail = typeof FEATURE_DETAILS[0];
 
 function FeatureModal({ feature, onClose }: { feature: FeatureDetail; onClose: () => void }) {
-  const [tab, setTab] = useState<"frontend" | "backend">("frontend");
   const Icon = feature.icon;
   return (
     <AnimatePresence>
@@ -640,24 +628,14 @@ function FeatureModal({ feature, onClose }: { feature: FeatureDetail; onClose: (
               <p className="text-muted-foreground text-sm leading-relaxed">{feature.what}</p>
             </div>
 
-            {/* Frontend / Backend tabs */}
+            {/* How it works */}
             <div>
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setTab("frontend")}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "frontend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
-                >
-                  ⚛️ Frontend
-                </button>
-                <button
-                  onClick={() => setTab("backend")}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${tab === "backend" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
-                >
-                  🖥️ Backend
-                </button>
-              </div>
+              <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                How it works
+              </h3>
               <ol className="space-y-2">
-                {(tab === "frontend" ? feature.frontend : feature.backend).map((item, i) => (
+                {[...feature.frontend, ...feature.backend].map((item, i) => (
                   <li key={i} className="flex gap-3 text-sm text-muted-foreground">
                     <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center mt-0.5">
                       {i + 1}
