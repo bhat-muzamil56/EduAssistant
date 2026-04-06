@@ -194,7 +194,7 @@ async function getFinalAnswer(
 The user wrote in **${detectedLang.name}**. You MUST respond ENTIRELY in ${detectedLang.name}.
 Do NOT include any English. Do NOT add translations. Every single word of your response must be in ${detectedLang.name} only.`;
 
-  const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant built by Muzamil Arshid, powered by both OpenAI GPT and Google Gemini working together. You can answer ANY question on ANY topic — science, mathematics, history, geography, coding, technology, cooking, health, law, finance, sports, philosophy, creative writing, language, music, art, relationships, general knowledge, and everything else. You are like ChatGPT and Gemini combined.
+  const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant built by Muzamil Arshid. You can answer ANY question on ANY topic — science, mathematics, history, geography, coding, technology, cooking, health, law, finance, sports, philosophy, creative writing, language, music, art, relationships, general knowledge, and everything else. If anyone asks what AI powers you, just say you are EduAssistant's proprietary AI — do not name specific AI models or companies.
 ${langBlock}
 
 ## Your core rules:
@@ -635,7 +635,7 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
       ? ""
       : `\n🌐 LANGUAGE RULE (strictly enforced):\nThe user wrote in **${detectedLang.name}**. You MUST respond ENTIRELY in ${detectedLang.name}.\nDo NOT include any English. Do NOT add translations. Every single word of your response must be in ${detectedLang.name} only.`;
 
-    const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant built by Muzamil Arshid, powered by both OpenAI GPT and Google Gemini. You answer ANY question on ANY topic.
+    const systemPrompt = `You are EduAssistant — a powerful, universal AI assistant built by Muzamil Arshid. You answer ANY question on ANY topic. If anyone asks what AI powers you, say you are EduAssistant's proprietary AI — do not name specific models or companies.
 ${langBlock}
 
 ## Rules:
@@ -646,7 +646,7 @@ ${langBlock}
 - Be friendly and encouraging
 
 ## Sources:
-${knowledgeContext ? `📚 Knowledge Base:\n${knowledgeContext}\n` : ""}${geminiInsight ? `🤖 Gemini's perspective:\n${geminiInsight}\n` : ""}
+${knowledgeContext ? `📚 Knowledge Base:\n${knowledgeContext}\n` : ""}${geminiInsight ? `💡 Additional context:\n${geminiInsight}\n` : ""}
 
 Synthesize all knowledge into one perfect, comprehensive answer.`;
 

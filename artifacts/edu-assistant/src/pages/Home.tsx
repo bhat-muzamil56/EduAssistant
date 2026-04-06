@@ -107,17 +107,17 @@ const PIPELINE_DETAILS = [
     desc: "Score confidence",
     icon: "⚙️",
     color: "from-rose-500 to-rose-600",
-    subtitle: "Dual-Model AI Processing",
-    what: "This is the most compute-intensive stage. The retrieved context is fed into a two-model pipeline: Gemini drafts an intuitive explanation first, then GPT synthesises the final structured answer. The top cosine score is used as a confidence indicator.",
+    subtitle: "Advanced AI Processing",
+    what: "This is the most compute-intensive stage. The retrieved context is fed into an advanced AI pipeline that first drafts an intuitive explanation, then synthesises the final structured answer. The top cosine score is used as a confidence indicator.",
     how: [
       "Confidence score = highest cosine similarity from the Matching step (0–100%)",
-      "Gemini (gemini-2.5-pro) receives the context + question and drafts an intuitive explanation",
-      "GPT (gpt-4o) receives Gemini's draft + original context and synthesises the final answer",
-      "GPT is instructed to produce a ChatGPT-style structured response with sections, emojis, real-world examples",
+      "The AI receives the context + question and drafts an intuitive, easy-to-understand explanation",
+      "A second AI pass synthesises the draft + original context into a polished, structured final answer",
+      "The AI produces a structured response with clear sections, real-world examples, and helpful formatting",
       "The AI prompt explicitly includes the confidence score so the model can caveat low-confidence answers",
-      "Both model calls happen server-side through secure AI Integration proxies (no API keys exposed to client)"
+      "All AI calls happen server-side through secure proxies (no API keys exposed to client)"
     ],
-    code: `// Stage 1: Gemini draft\nconst draft = await gemini.generate({ prompt: geminiPrompt });\n// Stage 2: GPT synthesis\nconst final = await openai.chat({ messages: gptMessages(draft) });`,
+    code: `// Stage 1: Draft intuitive explanation\nconst draft = await ai.generate({ prompt: draftPrompt });\n// Stage 2: Synthesise final answer\nconst final = await ai.chat({ messages: buildMessages(draft) });`,
     output: "Final structured AI answer with confidence score attached"
   },
   {
@@ -144,30 +144,30 @@ const PIPELINE_DETAILS = [
 const CAPABILITY_DETAILS = [
   {
     icon: Brain,
-    label: "Dual AI Engine",
-    desc: "Gemini drafts an intuitive explanation, GPT synthesises the final structured answer — two models working together on every question.",
+    label: "Advanced AI Engine",
+    desc: "Our AI pipeline drafts an intuitive explanation then synthesises a final structured answer — delivering smarter responses on every question.",
     color: "from-violet-500 to-purple-700",
     badge: "🤖 AI Power",
-    what: "EduAssistant uses two AI models simultaneously. First, Google Gemini generates a quick intuitive explanation. Then, GPT takes that explanation plus the knowledge base results and synthesises a final, polished, structured answer. You get the best of both models in every single response.",
+    what: "EduAssistant uses an advanced multi-stage AI pipeline. The AI first generates an intuitive, easy-to-understand explanation, then synthesises a final polished and structured answer using all available context. Every response is the result of deep, multi-step AI reasoning — not just a single lookup.",
     frontend: [
       "You send a question — the chat UI opens a streaming connection instantly",
-      "Words start appearing on screen within ~1 second as GPT generates them",
-      "A blinking cursor shows the AI is still writing — just like ChatGPT",
+      "Words start appearing on screen within ~1 second as the AI generates them",
+      "A blinking cursor shows the AI is still writing",
       "When streaming completes, the full response is saved and confidence shown",
-      "The UI handles both models transparently — you just see one clean answer"
+      "The AI pipeline is completely transparent — you just see one clean, polished answer"
     ],
     backend: [
-      "Gemini runs with a 1.5s timeout in parallel with knowledge base retrieval",
-      "If Gemini finishes in time, its insight is injected into the GPT prompt",
-      "GPT streams the final answer token-by-token via Server-Sent Events (SSE)",
+      "The AI drafts an intuitive explanation in parallel with knowledge base retrieval",
+      "The draft insight is injected into the final AI prompt for richer context",
+      "The AI streams the final answer token-by-token via Server-Sent Events (SSE)",
       "The combined response is saved to PostgreSQL once streaming is complete",
-      "If Gemini times out, GPT proceeds alone — no disruption to the user"
+      "Automatic fallback ensures no disruption even if any stage is slow"
     ],
     capabilities: [
-      "Two AI models work together on every question",
+      "Multi-stage AI pipeline on every question",
       "Responses start streaming in ~1 second",
-      "Gemini adds intuitive context, GPT structures the final answer",
-      "Automatic fallback if either model is slow",
+      "Deep reasoning produces intuitive, well-structured answers",
+      "Automatic fallback if any processing stage is slow",
       "Answers any question on any topic — science, maths, coding, history, and more"
     ]
   },
@@ -522,10 +522,10 @@ const FEATURE_DETAILS = [
     short: "Beautiful, responsive interface designed to keep students engaged and focused.",
     color: "from-pink-500 to-rose-600",
     badge: "🎨 Design",
-    what: "Modern UI/UX means EduAssistant looks and feels like a professional app. The interface is clean, animated, responsive (works on phone, tablet, and desktop), and supports dark mode. It's built with the same design principles as ChatGPT — minimal, distraction-free, and easy to use.",
+    what: "Modern UI/UX means EduAssistant looks and feels like a professional app. The interface is clean, animated, responsive (works on phone, tablet, and desktop), and supports dark mode. It is built with a minimal, distraction-free design — beautiful and easy to use on any device.",
     frontend: [
       "Smooth animations using Framer Motion on every interaction",
-      "ChatGPT-style welcome screen with quick action chips",
+      "Welcoming chat screen with quick action chips to get started instantly",
       "Streaming text that appears word-by-word as the AI types",
       "Responsive layout — works perfectly on mobile, tablet, and desktop",
       "Dark mode support with consistent theming throughout",
@@ -544,7 +544,7 @@ const FEATURE_DETAILS = [
       "Full voice assistant — speak questions, hear answers",
       "50+ language support with auto-detection",
       "Animated streaming responses with blinking cursor",
-      "Slide-out chat history sidebar like ChatGPT",
+      "Slide-out chat history sidebar for all your sessions",
       "Works on any device — phone, tablet, laptop, desktop"
     ]
   },
@@ -1007,7 +1007,7 @@ export default function Home() {
               <Layers className="w-10 h-10 text-primary mb-6" />
               <h3 className="text-xl font-bold mb-2">Presentation Layer</h3>
               <p className="text-sm font-semibold text-primary mb-4">React + Tailwind</p>
-              <p className="text-muted-foreground">Responsive, highly interactive UI providing a ChatGPT-like experience. Uses React Query for seamless API communication.</p>
+              <p className="text-muted-foreground">Responsive, highly interactive UI with real-time streaming responses, dark mode, voice input, and multi-session history. Uses React Query for seamless API communication.</p>
             </div>
             
             <div className="glass-card p-8 rounded-2xl relative overflow-hidden group border-primary/20 shadow-primary/5">
