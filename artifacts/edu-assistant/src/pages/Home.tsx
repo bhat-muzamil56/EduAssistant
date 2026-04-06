@@ -1004,9 +1004,7 @@ export default function Home() {
             <p className="text-lg text-muted-foreground">Everything you need to deploy an intelligent campus assistant.</p>
           </div>
 
-          <p className="text-center text-sm text-muted-foreground mb-8 -mt-8">
-            👆 Click any feature to see exactly how it works — frontend &amp; backend
-          </p>
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURE_DETAILS.map((feat, i) => (
               <motion.button
