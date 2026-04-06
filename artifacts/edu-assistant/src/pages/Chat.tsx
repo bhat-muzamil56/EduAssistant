@@ -287,18 +287,27 @@ export default function Chat() {
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
   // ── Scroll-to-bottom detection ─────────────────────────────────────────────
+  const isNearBottomRef = useRef(true);
+  const userScrolledUpRef = useRef(false);
+
   useEffect(() => {
     const el = chatAreaRef.current;
     if (!el) return;
     const onScroll = () => {
-      setShowScrollBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 250);
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const nearBottom = distanceFromBottom < 120;
+      isNearBottomRef.current = nearBottom;
+      userScrolledUpRef.current = !nearBottom;
+      setShowScrollBottom(distanceFromBottom > 250);
     };
-    el.addEventListener("scroll", onScroll);
+    el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, []);
 
   // ── Ctrl+K → open sidebar search / ? → shortcuts ──────────────────────────
@@ -330,9 +339,11 @@ export default function Chat() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Auto-scroll on new messages ────────────────────────────────────────────
+  // ── Auto-scroll on new messages (only if user is near bottom) ───────────────
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUpRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, isSending]);
 
   // ── Copy message ────────────────────────────────────────────────────────────
@@ -550,6 +561,9 @@ export default function Chat() {
     if (textareaRef.current) textareaRef.current.style.height = "44px";
     voiceInputPendingRef.current = false;
     setVoiceInputPending(false);
+    userScrolledUpRef.current = false;
+    isNearBottomRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     await sendMessage(message, selectedLang.code);
   };
 
@@ -1221,7 +1235,7 @@ export default function Chat() {
           {showScrollBottom && messages.length > 0 && (
             <motion.button
               initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-              onClick={scrollToBottom}
+              onClick={() => { userScrolledUpRef.current = false; isNearBottomRef.current = true; scrollToBottom(true); }}
               className="fixed bottom-28 right-5 z-20 p-2.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all">
               <ArrowDown className="w-4 h-4" />
             </motion.button>
