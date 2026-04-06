@@ -148,6 +148,17 @@ export function useChat() {
     }
   }, [token]);
 
+  // Delete a session
+  const deleteSession = useCallback(async (id: string) => {
+    if (!token) return;
+    try {
+      await apiFetch(`/api/chat/sessions/${id}`, token, { method: "DELETE" });
+      setSessions(prev => prev.filter(s => s.id !== id));
+    } catch {
+      // silently ignore
+    }
+  }, [token]);
+
   // Clear active session → shows the clean welcome screen
   const newChat = useCallback(() => {
     if (isGuest) {
@@ -244,8 +255,28 @@ export function useChat() {
     [sessionId, token, createNewSession, queryClient, refreshSessions, toast]
   );
 
+  // Regenerate the last AI response (must be after sendMessage is defined)
+  const confirmedMessagesRef = useRef<Array<{ id: string; role: string; content: string; createdAt: string; confidence: number | null; sessionId: string }>>([]);
+
+  const regenerate = useCallback(async () => {
+    if (!sessionId || isSending) return;
+    const msgs = confirmedMessagesRef.current ?? [];
+    const lastUserMsg = [...msgs].reverse().find(m => m.role === "user");
+    if (!lastUserMsg) return;
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      await fetch(`${API_BASE}/api/chat/sessions/${sessionId}/last-reply`, { method: "DELETE", headers });
+      await queryClient.invalidateQueries({ queryKey: getGetChatMessagesQueryKey(sessionId) });
+    } catch {
+      // silently ignore
+    }
+    await sendMessage(lastUserMsg.content);
+  }, [sessionId, token, queryClient, sendMessage, isSending]);
+
   // Combine confirmed messages with the optimistic (pending) user message
   const confirmedMessages = messagesQuery.data ?? [];
+  confirmedMessagesRef.current = confirmedMessages;
   const allMessages = optimisticMessage
     ? [...confirmedMessages, optimisticMessage]
     : confirmedMessages;
@@ -264,6 +295,8 @@ export function useChat() {
     newChat,
     switchSession,
     renameSession,
+    deleteSession,
+    regenerate,
     refreshSessions,
     error: messagesQuery.error,
   };

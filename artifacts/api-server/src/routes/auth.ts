@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { usersTable, chatSessionsTable, chatMessagesTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware, type AuthRequest } from "../middlewares/auth.js";
@@ -121,6 +121,25 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
   }
 
   res.json({ id: user.id, username: user.username, email: user.email, createdAt: user.createdAt.toISOString() });
+});
+
+// Delete account and all associated data
+router.delete("/account", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const userSessions = await db
+    .select({ id: chatSessionsTable.id })
+    .from(chatSessionsTable)
+    .where(eq(chatSessionsTable.userId, userId));
+
+  for (const session of userSessions) {
+    await db.delete(chatMessagesTable).where(eq(chatMessagesTable.sessionId, session.id));
+  }
+  await db.delete(chatSessionsTable).where(eq(chatSessionsTable.userId, userId));
+  await db.delete(usersTable).where(eq(usersTable.id, userId));
+
+  res.json({ success: true });
 });
 
 export default router;

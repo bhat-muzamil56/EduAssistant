@@ -352,6 +352,47 @@ router.patch("/sessions/:sessionId/rename", authMiddleware, async (req: AuthRequ
   res.json({ id: session.id, title: session.title });
 });
 
+// Delete a session and all its messages
+router.delete("/sessions/:sessionId", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [session] = await db
+    .select()
+    .from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId)))
+    .limit(1);
+
+  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+
+  await db.delete(chatMessagesTable).where(eq(chatMessagesTable.sessionId, sessionId));
+  await db.delete(chatSessionsTable).where(eq(chatSessionsTable.id, sessionId));
+  res.json({ success: true });
+});
+
+// Delete the last assistant reply in a session (for "regenerate" feature)
+router.delete("/sessions/:sessionId/last-reply", optionalAuthMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+
+  if (userId) {
+    const [session] = await db.select().from(chatSessionsTable)
+      .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId))).limit(1);
+    if (!session) { res.status(403).json({ error: "Access denied" }); return; }
+  }
+
+  const [lastAI] = await db.select().from(chatMessagesTable)
+    .where(and(eq(chatMessagesTable.sessionId, sessionId), eq(chatMessagesTable.role, "assistant")))
+    .orderBy(desc(chatMessagesTable.createdAt))
+    .limit(1);
+
+  if (lastAI) {
+    await db.delete(chatMessagesTable).where(eq(chatMessagesTable.id, lastAI.id));
+  }
+  res.json({ success: true });
+});
+
 // Create a fresh new session for the logged-in user
 router.post("/new-session", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.userId;
@@ -548,6 +589,17 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
         .where(eq(chatMessagesTable.sessionId, sessionId))
         .orderBy(chatMessagesTable.createdAt),
     ]);
+
+    // Auto-title: set a short title from the first user message
+    if (userId && previousMessages.length === 0) {
+      const words = content.trim().split(/\s+/);
+      const autoTitle = words.slice(0, 6).join(" ").replace(/[?!.,;:]+$/, "").trim();
+      if (autoTitle) {
+        await db.update(chatSessionsTable)
+          .set({ title: autoTitle.slice(0, 80) })
+          .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId)));
+      }
+    }
 
     const topMatches = findTopMatches(content, knowledge, 5);
     const topScore = topMatches[0]?.score ?? 0;
