@@ -321,6 +321,7 @@ router.get("/user-sessions", authMiddleware, async (req: AuthRequest, res) => {
       return {
         id: session.id,
         createdAt: session.createdAt.toISOString(),
+        title: session.title ?? null,
         preview: firstMsg[0]?.content?.slice(0, 80) ?? null,
       };
     })
@@ -328,6 +329,27 @@ router.get("/user-sessions", authMiddleware, async (req: AuthRequest, res) => {
 
   // Only return sessions that have at least one message
   res.json(sessionsWithPreview.filter(s => s.preview !== null));
+});
+
+// Rename a session
+router.patch("/sessions/:sessionId/rename", authMiddleware, async (req: AuthRequest, res) => {
+  const { sessionId } = req.params;
+  const userId = req.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { title } = req.body as { title?: string };
+  if (typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "title is required" }); return;
+  }
+
+  const [session] = await db
+    .update(chatSessionsTable)
+    .set({ title: title.trim().slice(0, 100) })
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.userId, userId)))
+    .returning();
+
+  if (!session) { res.status(404).json({ error: "Session not found" }); return; }
+  res.json({ id: session.id, title: session.title });
 });
 
 // Create a fresh new session for the logged-in user

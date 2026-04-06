@@ -13,6 +13,7 @@ const GUEST_SESSION_KEY = "guest_session_id";
 export interface SessionPreview {
   id: string;
   createdAt: string;
+  title: string | null;
   preview: string;
 }
 
@@ -133,6 +134,20 @@ export function useChat() {
     setSessionId(id);
   }, []);
 
+  // Rename a session
+  const renameSession = useCallback(async (id: string, title: string) => {
+    if (!token) return;
+    try {
+      await apiFetch(`/api/chat/sessions/${id}/rename`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, title } : s));
+    } catch {
+      // silently ignore
+    }
+  }, [token]);
+
   // Clear active session → shows the clean welcome screen
   const newChat = useCallback(() => {
     if (isGuest) {
@@ -248,6 +263,7 @@ export function useChat() {
     sendMessage,
     newChat,
     switchSession,
+    renameSession,
     refreshSessions,
     error: messagesQuery.error,
   };

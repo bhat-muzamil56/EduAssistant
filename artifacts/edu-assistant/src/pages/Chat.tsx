@@ -1,53 +1,28 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
-  Send,
-  Bot,
-  User,
-  Loader2,
-  ShieldCheck,
-  RefreshCw,
-  LogOut,
-  Sparkles,
-  BookOpen,
-  Code2,
-  Brain,
-  Lightbulb,
-  ChevronRight,
-  ChevronDown,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  Radio,
-  Globe,
-  Calculator,
-  FlaskConical,
-  Utensils,
-  Landmark,
-  PenLine,
-  Heart,
-  Shuffle,
-  FileText,
-  Menu,
-  X,
-  MessageSquare,
-  Plus,
-  Clock,
+  Send, Bot, User, Loader2, ShieldCheck, RefreshCw, LogOut, Sparkles,
+  BookOpen, Code2, Brain, Lightbulb, ChevronRight, ChevronDown,
+  Mic, MicOff, Volume2, VolumeX, Radio, Globe, Calculator, FlaskConical,
+  Utensils, Landmark, PenLine, Heart, Shuffle, FileText, Menu, X,
+  MessageSquare, Plus, Clock, Copy, Check, Download, ThumbsUp, ThumbsDown,
+  Search, Edit2, ChevronDown as ChevronDownIcon, ArrowDown, Keyboard,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import "katex/dist/katex.min.css";
 import { useChat } from "@/hooks/use-chat";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ── Supported languages ─────────────────────────────────────────────────────
+// ── Supported languages ──────────────────────────────────────────────────────
 const LANGUAGES = [
-  // Global / Default
   { code: "en-US",  name: "English",       flag: "🇺🇸" },
-
-  // Indian Scheduled Languages (all 22 + prominent regional ones)
   { code: "hi-IN",  name: "हिन्दी",         flag: "🇮🇳" },
   { code: "ta-IN",  name: "தமிழ்",          flag: "🇮🇳" },
   { code: "te-IN",  name: "తెలుగు",         flag: "🇮🇳" },
@@ -75,19 +50,13 @@ const LANGUAGES = [
   { code: "raj-IN", name: "राजस्थानी",      flag: "🇮🇳" },
   { code: "hne-IN", name: "छत्तीसगढ़ी",     flag: "🇮🇳" },
   { code: "tcy-IN", name: "ತುಳು",           flag: "🇮🇳" },
-
-  // Pakistan / Bangladesh
   { code: "ur-PK",  name: "اردو (PK)",      flag: "🇵🇰" },
   { code: "bn-BD",  name: "বাংলা (BD)",     flag: "🇧🇩" },
-
-  // South Asia
   { code: "si-LK",  name: "සිංහල",          flag: "🇱🇰" },
   { code: "ne-NP",  name: "नेपाली (NP)",    flag: "🇳🇵" },
   { code: "dz-BT",  name: "རྫོང་ཁ",          flag: "🇧🇹" },
   { code: "ps-AF",  name: "پښتو",           flag: "🇦🇫" },
   { code: "fa-AF",  name: "دری",            flag: "🇦🇫" },
-
-  // Southeast Asia
   { code: "my-MM",  name: "မြန်မာ",          flag: "🇲🇲" },
   { code: "th-TH",  name: "ภาษาไทย",        flag: "🇹🇭" },
   { code: "lo-LA",  name: "ລາວ",            flag: "🇱🇦" },
@@ -98,8 +67,6 @@ const LANGUAGES = [
   { code: "fil-PH", name: "Filipino",       flag: "🇵🇭" },
   { code: "jv-ID",  name: "Basa Jawa",      flag: "🇮🇩" },
   { code: "su-ID",  name: "Basa Sunda",     flag: "🇮🇩" },
-
-  // East Asia
   { code: "zh-CN",  name: "中文 (简体)",      flag: "🇨🇳" },
   { code: "zh-TW",  name: "中文 (繁體)",      flag: "🇹🇼" },
   { code: "zh-HK",  name: "粵語",            flag: "🇭🇰" },
@@ -107,15 +74,11 @@ const LANGUAGES = [
   { code: "ko-KR",  name: "한국어",           flag: "🇰🇷" },
   { code: "mn-MN",  name: "Монгол",          flag: "🇲🇳" },
   { code: "bo-CN",  name: "བོད་སྐད་",         flag: "🇨🇳" },
-
-  // Middle East
   { code: "ar-SA",  name: "العربية",         flag: "🇸🇦" },
   { code: "fa-IR",  name: "فارسی",           flag: "🇮🇷" },
   { code: "he-IL",  name: "עברית",           flag: "🇮🇱" },
   { code: "tr-TR",  name: "Türkçe",          flag: "🇹🇷" },
   { code: "ku-TR",  name: "Kurdî",           flag: "🏳️" },
-
-  // Central Asia / Caucasus
   { code: "az-AZ",  name: "Azərbaycan",      flag: "🇦🇿" },
   { code: "uz-UZ",  name: "Oʻzbek",          flag: "🇺🇿" },
   { code: "kk-KZ",  name: "Қазақша",        flag: "🇰🇿" },
@@ -124,8 +87,6 @@ const LANGUAGES = [
   { code: "tk-TM",  name: "Türkmen",         flag: "🇹🇲" },
   { code: "ka-GE",  name: "ქართული",         flag: "🇬🇪" },
   { code: "hy-AM",  name: "Հայերեն",         flag: "🇦🇲" },
-
-  // Europe — Major
   { code: "ru-RU",  name: "Русский",         flag: "🇷🇺" },
   { code: "uk-UA",  name: "Українська",      flag: "🇺🇦" },
   { code: "be-BY",  name: "Беларуская",      flag: "🇧🇾" },
@@ -157,8 +118,6 @@ const LANGUAGES = [
   { code: "lv-LV",  name: "Latviešu",        flag: "🇱🇻" },
   { code: "lt-LT",  name: "Lietuvių",        flag: "🇱🇹" },
   { code: "et-EE",  name: "Eesti",           flag: "🇪🇪" },
-
-  // Europe — Regional / Minority
   { code: "ca-ES",  name: "Català",          flag: "🏴" },
   { code: "eu-ES",  name: "Euskara",         flag: "🏴" },
   { code: "gl-ES",  name: "Galego",          flag: "🏴" },
@@ -166,8 +125,6 @@ const LANGUAGES = [
   { code: "ga-IE",  name: "Gaeilge",         flag: "🇮🇪" },
   { code: "mt-MT",  name: "Malti",           flag: "🇲🇹" },
   { code: "af-ZA",  name: "Afrikaans",       flag: "🇿🇦" },
-
-  // Africa
   { code: "sw-KE",  name: "Kiswahili",       flag: "🇰🇪" },
   { code: "am-ET",  name: "አማርኛ",            flag: "🇪🇹" },
   { code: "so-SO",  name: "Soomaali",        flag: "🇸🇴" },
@@ -197,12 +154,12 @@ const SUGGESTIONS = [
 ];
 
 const QUICK_ACTIONS = [
-  { icon: Brain,     label: "Explain a concept",  color: "#8b5cf6", prompt: "Explain "          },
-  { icon: PenLine,   label: "Help me write",       color: "#ec4899", prompt: "Help me write "    },
-  { icon: Calculator,label: "Solve a problem",     color: "#3b82f6", prompt: "Solve: "           },
-  { icon: FileText,  label: "Summarize a topic",   color: "#10b981", prompt: "Summarize "        },
-  { icon: Code2,     label: "Write some code",     color: "#f59e0b", prompt: "Write code to "   },
-  { icon: Shuffle,   label: "Surprise me",         color: "#ef4444", prompt: "__surprise__"      },
+  { icon: Brain,      label: "Explain a concept",  color: "#8b5cf6", prompt: "Explain "          },
+  { icon: PenLine,    label: "Help me write",       color: "#ec4899", prompt: "Help me write "    },
+  { icon: Calculator, label: "Solve a problem",     color: "#3b82f6", prompt: "Solve: "           },
+  { icon: FileText,   label: "Summarize a topic",   color: "#10b981", prompt: "Summarize "        },
+  { icon: Code2,      label: "Write some code",     color: "#f59e0b", prompt: "Write code to "   },
+  { icon: Shuffle,    label: "Surprise me",         color: "#ef4444", prompt: "__surprise__"      },
 ];
 
 const SURPRISE_QUESTIONS = [
@@ -242,37 +199,170 @@ interface SpeechRecognitionInstance extends EventTarget {
 declare const webkitSpeechRecognition: new () => SpeechRecognitionInstance;
 declare const SpeechRecognition: new () => SpeechRecognitionInstance;
 
+// ── Markdown code renderer with syntax highlighting ──────────────────────────
+function CodeBlock({ inline, className, children }: { inline?: boolean; className?: string; children?: React.ReactNode }) {
+  const match = /language-(\w+)/.exec(className || "");
+  const code = String(children).replace(/\n$/, "");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  if (!inline && match) {
+    return (
+      <div className="relative group/code my-3 rounded-xl overflow-hidden border border-border/40">
+        <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-white/10">
+          <span className="text-xs text-zinc-400 font-mono font-medium">{match[1]}</span>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/10"
+          >
+            {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <SyntaxHighlighter
+          style={oneDark as Record<string, React.CSSProperties>}
+          language={match[1]}
+          PreTag="div"
+          customStyle={{ margin: 0, borderRadius: 0, background: "#1a1a2e", fontSize: "0.85rem" }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
+    );
+  }
+
+  return (
+    <code className={cn("bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[0.85em] font-mono", className)}>
+      {children}
+    </code>
+  );
+}
+
 export default function Chat() {
   const [, navigate] = useLocation();
   const { user, logout, loading: authLoading } = useAuth();
   const {
     messages, sessions, isGuest, isInitializing, isLoadingMessages, isSending,
-    streamingContent, sendMessage, newChat, switchSession, error,
+    streamingContent, sendMessage, newChat, switchSession, renameSession, error,
   } = useChat();
+
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceInputPending, setVoiceInputPending] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
+
+  // Feature states
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, "up" | "down">>({});
+  const [sessionSearch, setSessionSearch] = useState("");
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
   const [voiceSupported] = useState(
     () => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
   );
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const langMenuRef = useRef<HTMLDivElement>(null);
-  // Refs so recognition/TTS callbacks never see stale values
+  const editInputRef = useRef<HTMLInputElement>(null);
+
   const voiceModeRef = useRef(false);
   const selectedLangRef = useRef(LANGUAGES[0]);
   const sendMessageRef = useRef<((msg: string, lang?: string) => Promise<void>) | null>(null);
-  // Set to true when mic captured a transcript → triggers auto-speak on next AI reply
   const voiceInputPendingRef = useRef(false);
   const wasVoiceSendRef = useRef(false);
 
-  // Keep lang ref in sync
   useEffect(() => { selectedLangRef.current = selectedLang; }, [selectedLang]);
 
+  // Scroll-to-bottom detection
+  useEffect(() => {
+    const el = chatAreaRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollBottom(distFromBottom > 250);
+    };
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  // ── Copy message ────────────────────────────────────────────────────────────
+  const copyMessage = useCallback((content: string, id: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedMsgId(id);
+      setTimeout(() => setCopiedMsgId(null), 2000);
+    });
+  }, []);
+
+  // ── Export conversation ─────────────────────────────────────────────────────
+  const exportConversation = useCallback(() => {
+    if (messages.length === 0) return;
+    const lines: string[] = [
+      "═══════════════════════════════════════",
+      "  EduAssistant — Conversation Export",
+      `  Exported: ${new Date().toLocaleString()}`,
+      "═══════════════════════════════════════",
+      "",
+    ];
+    messages.forEach((msg) => {
+      lines.push(msg.role === "user" ? "You:" : "EduAssistant:");
+      lines.push(msg.content);
+      lines.push("");
+    });
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `eduassistant-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [messages]);
+
+  // ── Session rename ──────────────────────────────────────────────────────────
+  const startRename = (id: string, currentTitle: string | null, currentPreview: string) => {
+    setEditingSessionId(id);
+    setEditingTitle(currentTitle ?? currentPreview.slice(0, 50));
+    setTimeout(() => editInputRef.current?.focus(), 50);
+  };
+
+  const submitRename = async () => {
+    if (!editingSessionId || !editingTitle.trim()) {
+      setEditingSessionId(null);
+      return;
+    }
+    await renameSession(editingSessionId, editingTitle.trim());
+    setEditingSessionId(null);
+  };
+
+  // ── Feedback ────────────────────────────────────────────────────────────────
+  const toggleFeedback = (msgId: string, direction: "up" | "down") => {
+    setFeedbackMap(prev => {
+      const current = prev[msgId];
+      if (current === direction) {
+        const next = { ...prev };
+        delete next[msgId];
+        return next;
+      }
+      return { ...prev, [msgId]: direction };
+    });
+  };
+
+  // ── Voice ───────────────────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     if (!voiceSupported) return;
     const Ctor = (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance; webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition
@@ -302,20 +392,16 @@ export default function Chat() {
       });
     };
 
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
+    recognition.onerror = () => { setIsListening(false); };
 
     recognition.onend = () => {
       setIsListening(false);
       const transcript = finalTranscript.trim();
       setInput(transcript);
       if (voiceModeRef.current && transcript && sendMessageRef.current) {
-        // Voice Mode: auto-send immediately (auto-speak handled by existing effect)
         setInput("");
         sendMessageRef.current(transcript, selectedLangRef.current.code);
       } else if (transcript) {
-        // Normal mic use: flag that the next send came from voice → auto-speak response
         voiceInputPendingRef.current = true;
         setVoiceInputPending(true);
       }
@@ -335,16 +421,14 @@ export default function Chat() {
     }
   }, [isListening, startListening]);
 
-  // ── Text-to-Speech (TTS) ────────────────────────────────────────────────
+  // ── TTS ─────────────────────────────────────────────────────────────────────
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
 
-  // Keep refs in sync so recognition callbacks never see stale values
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-  // Close language menu when clicking outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
@@ -395,17 +479,12 @@ export default function Chat() {
     utterance.onend = () => {
       setIsSpeaking(false);
       setSpeakingMsgId(null);
-      // After AI finishes speaking → auto-open mic for next question
       if (voiceModeRef.current) setTimeout(() => startListening(), 500);
     };
     utterance.onerror = () => { setIsSpeaking(false); setSpeakingMsgId(null); };
-
     window.speechSynthesis.speak(utterance);
   }, [stopSpeaking, startListening]);
 
-  // Auto-speak new assistant messages when:
-  //  (a) Voice Mode is active (hands-free loop), OR
-  //  (b) user sent the last message via the mic button (wasVoiceSendRef)
   const lastSpokenIdRef = useRef<string | null>(null);
   useEffect(() => {
     const shouldAutoSpeak = voiceModeRef.current || wasVoiceSendRef.current;
@@ -414,15 +493,11 @@ export default function Chat() {
     if (!lastMsg || lastMsg.role !== "assistant") return;
     if (lastMsg.id === lastSpokenIdRef.current) return;
     lastSpokenIdRef.current = lastMsg.id;
-    // Reset the one-shot voice flag after triggering
     wasVoiceSendRef.current = false;
     setTimeout(() => speak(lastMsg.content, lastMsg.id), 300);
   }, [messages, isSending, speak]);
 
-  // Cleanup speech on unmount
   useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
-
-  // No redirect — guests are welcome to chat without logging in
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -434,7 +509,6 @@ export default function Chat() {
     const message = input.trim();
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "44px";
-    // If this message was typed via mic, mark it so the response is auto-spoken
     if (voiceInputPendingRef.current) {
       wasVoiceSendRef.current = true;
       voiceInputPendingRef.current = false;
@@ -460,7 +534,6 @@ export default function Chat() {
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    // If user manually edits after mic, cancel the auto-speak flag
     if (voiceInputPendingRef.current) {
       voiceInputPendingRef.current = false;
       setVoiceInputPending(false);
@@ -471,7 +544,6 @@ export default function Chat() {
 
   const isReady = !isInitializing && !isLoadingMessages;
 
-  // Show spinner only while verifying an existing token — guests skip this
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -480,7 +552,6 @@ export default function Chat() {
     );
   }
 
-  // ── Helper: format session date label ───────────────────────────────────
   const formatSessionDate = (iso: string) => {
     const d = new Date(iso);
     const now = new Date();
@@ -491,14 +562,22 @@ export default function Chat() {
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
 
+  const filteredSessions = sessions.filter(s => {
+    if (!sessionSearch.trim()) return true;
+    const q = sessionSearch.toLowerCase();
+    return (
+      (s.title ?? "").toLowerCase().includes(q) ||
+      (s.preview ?? "").toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
 
-      {/* ── History Sidebar ── */}
+      {/* ── Sidebar ── */}
       <AnimatePresence>
         {sidebarOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               key="sidebar-backdrop"
               initial={{ opacity: 0 }}
@@ -508,7 +587,6 @@ export default function Chat() {
               className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
               onClick={() => setSidebarOpen(false)}
             />
-            {/* Panel */}
             <motion.aside
               key="sidebar-panel"
               initial={{ x: "-100%" }}
@@ -542,27 +620,83 @@ export default function Chat() {
                 </button>
               </div>
 
+              {/* Search sessions */}
+              {sessions.length > 0 && (
+                <div className="px-3 py-2 border-b border-border">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/60 border border-border">
+                    <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search chats…"
+                      value={sessionSearch}
+                      onChange={e => setSessionSearch(e.target.value)}
+                      className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
+                    />
+                    {sessionSearch && (
+                      <button onClick={() => setSessionSearch("")} className="text-muted-foreground hover:text-foreground">
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Session list */}
               <div className="flex-1 overflow-y-auto py-2">
-                {sessions.length === 0 ? (
+                {filteredSessions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground px-4">
                     <MessageSquare className="w-8 h-8 opacity-30" />
-                    <p className="text-xs text-center">No chat history yet. Start a conversation!</p>
+                    <p className="text-xs text-center">
+                      {sessionSearch ? "No chats match your search." : "No chat history yet. Start a conversation!"}
+                    </p>
                   </div>
                 ) : (
-                  sessions.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => { switchSession(s.id); setSidebarOpen(false); }}
-                      className="w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors group"
-                    >
-                      <p className="text-xs text-muted-foreground mb-0.5 font-medium">
-                        {formatSessionDate(s.createdAt)}
-                      </p>
-                      <p className="text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                        {s.preview}
-                      </p>
-                    </button>
+                  filteredSessions.map((s) => (
+                    <div key={s.id} className="group relative">
+                      {editingSessionId === s.id ? (
+                        <div className="px-3 py-2">
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editingTitle}
+                            onChange={e => setEditingTitle(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") submitRename();
+                              if (e.key === "Escape") setEditingSessionId(null);
+                            }}
+                            onBlur={submitRename}
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-primary bg-primary/5 text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                            maxLength={80}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1 px-1">Enter to save · Esc to cancel</p>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { switchSession(s.id); setSidebarOpen(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary/60 transition-colors pr-10"
+                        >
+                          <p className="text-xs text-muted-foreground mb-0.5 font-medium">
+                            {formatSessionDate(s.createdAt)}
+                          </p>
+                          <p className="text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors font-medium">
+                            {s.title ?? s.preview}
+                          </p>
+                          {s.title && (
+                            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{s.preview}</p>
+                          )}
+                        </button>
+                      )}
+                      {/* Rename button on hover */}
+                      {!isGuest && editingSessionId !== s.id && (
+                        <button
+                          onClick={e => { e.stopPropagation(); startRename(s.id, s.title, s.preview); }}
+                          title="Rename"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-secondary text-muted-foreground hover:text-foreground"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   ))
                 )}
               </div>
@@ -571,10 +705,9 @@ export default function Chat() {
         )}
       </AnimatePresence>
 
-      {/* Header */}
+      {/* ── Header ── */}
       <header className="flex-shrink-0 h-16 border-b border-border/50 bg-background/80 backdrop-blur-md flex items-center px-4 md:px-6 justify-between z-10">
         <div className="flex items-center gap-3">
-          {/* Hamburger / history toggle */}
           <button
             onClick={() => setSidebarOpen(true)}
             title="Chat history"
@@ -598,6 +731,17 @@ export default function Chat() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Export button */}
+          {messages.length > 0 && (
+            <button
+              onClick={exportConversation}
+              title="Export conversation"
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Language selector */}
           <div className="relative" ref={langMenuRef}>
             <button
@@ -622,22 +766,15 @@ export default function Chat() {
                   {LANGUAGES.map((lang) => (
                     <button
                       key={lang.code}
-                      onClick={() => {
-                        setSelectedLang(lang);
-                        setShowLangMenu(false);
-                      }}
+                      onClick={() => { setSelectedLang(lang); setShowLangMenu(false); }}
                       className={cn(
                         "w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors hover:bg-secondary/60",
-                        selectedLang.code === lang.code
-                          ? "text-primary font-semibold bg-primary/5"
-                          : "text-muted-foreground"
+                        selectedLang.code === lang.code ? "text-primary font-semibold bg-primary/5" : "text-muted-foreground"
                       )}
                     >
                       <span className="text-base leading-none">{lang.flag}</span>
                       <span>{lang.name}</span>
-                      {selectedLang.code === lang.code && (
-                        <span className="ml-auto text-primary">✓</span>
-                      )}
+                      {selectedLang.code === lang.code && <span className="ml-auto text-primary">✓</span>}
                     </button>
                   ))}
                 </motion.div>
@@ -652,10 +789,8 @@ export default function Chat() {
                 const next = !voiceMode;
                 setVoiceMode(next);
                 if (next) {
-                  // Turning on: start mic immediately
                   setTimeout(() => startListening(), 100);
                 } else {
-                  // Turning off: stop everything
                   stopSpeaking();
                   recognitionRef.current?.stop();
                   setIsListening(false);
@@ -729,8 +864,8 @@ export default function Chat() {
         </div>
       )}
 
-      {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-4xl mx-auto">
+      {/* ── Chat Area ── */}
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-4xl mx-auto relative">
         {isInitializing || isLoadingMessages ? (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
             <div className="relative">
@@ -753,29 +888,28 @@ export default function Chat() {
             </button>
           </div>
         ) : messages.length === 0 ? (
-          /* ── Welcome / Empty State — clean ChatGPT-style ── */
+          /* ── Welcome / Empty State ── */
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="h-full flex flex-col items-center justify-center text-center px-6"
+            className="h-full flex flex-col items-center justify-center text-center px-4"
           >
-            {/* Main heading */}
             <motion.h2
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.5 }}
-              className="text-3xl md:text-4xl font-bold text-foreground mb-10 tracking-tight"
+              className="text-3xl md:text-4xl font-bold text-foreground mb-8 tracking-tight"
             >
               What can I help with?
             </motion.h2>
 
-            {/* Quick action pill chips */}
+            {/* Quick action pills */}
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="flex flex-wrap justify-center gap-3 max-w-xl mb-10"
+              className="flex flex-wrap justify-center gap-3 max-w-xl mb-8"
             >
               {QUICK_ACTIONS.map((action, i) => (
                 <motion.button
@@ -792,11 +926,38 @@ export default function Chat() {
               ))}
             </motion.div>
 
-            {/* Subtle powered-by badge */}
+            {/* Suggested starter questions */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45, duration: 0.5 }}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-2xl mb-6"
+            >
+              {SUGGESTIONS.map((s, i) => (
+                <motion.button
+                  key={i}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.05, duration: 0.3 }}
+                  onClick={() => handleSuggestion(s.label)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border/60 bg-card/60 hover:bg-secondary/60 hover:border-primary/30 transition-all text-left group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <s.icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground mb-0.5">{s.category}</p>
+                    <p className="text-sm text-foreground leading-tight line-clamp-1">{s.label}</p>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                </motion.button>
+              ))}
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
               className="flex items-center gap-2 text-xs text-muted-foreground"
             >
               <Sparkles className="w-3 h-3" />
@@ -814,7 +975,7 @@ export default function Chat() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25 }}
                   className={cn(
-                    "flex items-start gap-3 max-w-3xl",
+                    "flex items-start gap-3 max-w-3xl group",
                     msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
                   )}
                 >
@@ -827,26 +988,50 @@ export default function Chat() {
                     )}
                   >
                     {msg.role === "user"
-                      ? user.username[0].toUpperCase()
+                      ? (user?.username?.[0]?.toUpperCase() ?? "G")
                       : <Bot className="w-4 h-4" />}
                   </div>
 
-                  <div
-                    className={cn(
-                      "px-5 py-4 rounded-2xl shadow-sm max-w-[85%]",
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-tr-sm"
-                        : "bg-card border border-border/50 text-foreground rounded-tl-sm",
-                      speakingMsgId === msg.id && "ring-2 ring-primary/40"
-                    )}
-                  >
+                  <div className={cn(
+                    "px-5 py-4 rounded-2xl shadow-sm max-w-[85%] relative",
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-tr-sm"
+                      : "bg-card border border-border/50 text-foreground rounded-tl-sm",
+                    speakingMsgId === msg.id && "ring-2 ring-primary/40"
+                  )}>
+                    {/* Copy button (top right, show on hover) */}
+                    <button
+                      onClick={() => copyMessage(msg.content, msg.id)}
+                      title="Copy message"
+                      className={cn(
+                        "absolute top-2 right-2 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100",
+                        msg.role === "user"
+                          ? "hover:bg-primary-foreground/20 text-primary-foreground/60 hover:text-primary-foreground"
+                          : "hover:bg-secondary text-muted-foreground/50 hover:text-muted-foreground"
+                      )}
+                    >
+                      {copiedMsgId === msg.id
+                        ? <Check className="w-3.5 h-3.5 text-green-500" />
+                        : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm md:prose-base dark:prose-invert prose-p:leading-relaxed prose-headings:font-bold max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <div className="prose prose-sm md:prose-base dark:prose-invert prose-p:leading-relaxed prose-headings:font-bold max-w-none pr-6">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                          components={{
+                            code: ({ node, inline, className, children, ...props }: any) => (
+                              <CodeBlock inline={inline} className={className} {...props}>
+                                {children}
+                              </CodeBlock>
+                            ),
+                          }}
+                        >
                           {msg.content}
                         </ReactMarkdown>
 
-                        {/* Bottom row: confidence + detected language + speak/stop button */}
+                        {/* Bottom row */}
                         <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-3 flex-wrap">
                             {msg.confidence !== null && msg.confidence !== undefined && msg.confidence > 0 && (
@@ -863,8 +1048,34 @@ export default function Chat() {
                             )}
                           </div>
 
-                          {/* Soundwave + speak/stop button */}
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Feedback buttons */}
+                            <button
+                              onClick={() => toggleFeedback(msg.id, "up")}
+                              title="Good response"
+                              className={cn(
+                                "p-1 rounded-lg transition-colors",
+                                feedbackMap[msg.id] === "up"
+                                  ? "text-green-500 bg-green-500/10"
+                                  : "text-muted-foreground/40 hover:text-green-500 hover:bg-green-500/10"
+                              )}
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => toggleFeedback(msg.id, "down")}
+                              title="Bad response"
+                              className={cn(
+                                "p-1 rounded-lg transition-colors",
+                                feedbackMap[msg.id] === "down"
+                                  ? "text-red-500 bg-red-500/10"
+                                  : "text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10"
+                              )}
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Soundwave */}
                             {speakingMsgId === msg.id && (
                               <div className="flex items-end gap-0.5 h-4">
                                 {[0, 150, 75, 225, 0].map((delay, i) => (
@@ -876,12 +1087,12 @@ export default function Chat() {
                                 ))}
                               </div>
                             )}
+
+                            {/* Speak / stop button */}
                             <button
                               type="button"
                               onClick={() =>
-                                speakingMsgId === msg.id
-                                  ? stopSpeaking()
-                                  : speak(msg.content, msg.id)
+                                speakingMsgId === msg.id ? stopSpeaking() : speak(msg.content, msg.id)
                               }
                               title={speakingMsgId === msg.id ? "Stop speaking" : "Read aloud"}
                               className={cn(
@@ -899,13 +1110,14 @@ export default function Chat() {
                         </div>
                       </div>
                     ) : (
-                      <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      <p className="leading-relaxed whitespace-pre-wrap pr-6">{msg.content}</p>
                     )}
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
 
+            {/* Streaming / thinking indicator */}
             {isSending && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -916,18 +1128,25 @@ export default function Chat() {
                   <Bot className="w-4 h-4" />
                 </div>
                 {streamingContent !== null && streamingContent.length > 0 ? (
-                  /* Streaming text — appears word by word */
                   <div className="px-5 py-4 rounded-2xl bg-card border border-border/50 rounded-tl-sm max-w-[85%]">
                     <div className="prose prose-sm md:prose-base dark:prose-invert prose-p:leading-relaxed prose-headings:font-bold max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={{
+                          code: ({ node, inline, className, children, ...props }: any) => (
+                            <CodeBlock inline={inline} className={className} {...props}>
+                              {children}
+                            </CodeBlock>
+                          ),
+                        }}
+                      >
                         {streamingContent}
                       </ReactMarkdown>
                     </div>
-                    {/* Blinking cursor while streaming */}
                     <span className="inline-block w-0.5 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
                   </div>
                 ) : (
-                  /* Waiting for first token — show dots */
                   <div className="px-5 py-4 rounded-2xl bg-card border border-border/50 rounded-tl-sm flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground mr-1">Thinking</span>
                     {[0, 150, 300].map((delay, i) => (
@@ -944,9 +1163,25 @@ export default function Chat() {
             <div ref={messagesEndRef} />
           </div>
         )}
+
+        {/* Scroll-to-bottom floating button */}
+        <AnimatePresence>
+          {showScrollBottom && messages.length > 0 && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              onClick={scrollToBottom}
+              className="fixed bottom-28 right-6 z-20 p-2.5 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all hover:shadow-primary/50"
+              title="Scroll to bottom"
+            >
+              <ArrowDown className="w-4 h-4" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Input Area */}
+      {/* ── Input Area ── */}
       <div className="flex-shrink-0 bg-background/90 backdrop-blur-md border-t border-border p-4 w-full">
         <div className="max-w-4xl mx-auto">
 
@@ -982,9 +1217,9 @@ export default function Chat() {
                 exit={{ opacity: 0, y: 6 }}
                 className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 w-fit mx-auto"
               >
-                <span className="text-amber-500 text-xs">🎤</span>
+                <Mic className="w-3 h-3 text-amber-500" />
                 <span className="text-xs font-medium text-amber-500">Voice message ready — AI will speak the reply</span>
-                <span className="text-amber-500 text-xs">🔊</span>
+                <Volume2 className="w-3 h-3 text-amber-500" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -992,12 +1227,12 @@ export default function Chat() {
           <form
             onSubmit={handleSubmit}
             className={cn(
-              "flex items-end gap-2 bg-card border-2 transition-all rounded-2xl p-2",
+              "flex items-end gap-2 rounded-2xl border bg-card shadow-sm transition-all",
               isListening
-                ? "border-red-500/60 shadow-md shadow-red-500/10"
+                ? "border-red-400 shadow-red-500/10"
                 : voiceInputPending
-                ? "border-amber-500/60 shadow-md shadow-amber-500/10"
-                : "border-border focus-within:border-primary/60 focus-within:shadow-md"
+                ? "border-amber-400 shadow-amber-500/10"
+                : "border-border focus-within:border-primary/50 focus-within:shadow-primary/10"
             )}
           >
             <textarea
@@ -1014,9 +1249,9 @@ export default function Chat() {
                 isListening
                   ? "Listening to your voice…"
                   : voiceInputPending
-                  ? "Voice captured — press ↵ to send (AI will speak back 🔊)"
+                  ? "Voice captured — press Enter to send"
                   : isReady
-                  ? "Ask anything — science, maths, history, coding, cooking… or tap 🎤 to speak"
+                  ? "Ask anything… (Enter to send, Shift+Enter for new line)"
                   : "Connecting…"
               }
               disabled={!isReady || isSending}
@@ -1025,19 +1260,12 @@ export default function Chat() {
               rows={1}
             />
 
-            {/* Mic button — only shown when speech is supported */}
             {voiceSupported && (
               <button
                 type="button"
                 onClick={toggleListening}
                 disabled={!isReady || isSending}
-                title={
-                  isListening
-                    ? "Stop listening"
-                    : voiceInputPending
-                    ? "Re-record your question"
-                    : "Speak your question — AI will speak back"
-                }
+                title={isListening ? "Stop listening" : "Speak your question"}
                 className={cn(
                   "p-3 rounded-xl transition-all mb-1 shrink-0 relative",
                   isListening
@@ -1052,11 +1280,6 @@ export default function Chat() {
                     <MicOff className="w-4 h-4" />
                     <span className="absolute inset-0 rounded-xl bg-red-500 animate-ping opacity-25" />
                   </>
-                ) : voiceInputPending ? (
-                  <>
-                    <Mic className="w-4 h-4" />
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white text-amber-600 text-[9px] flex items-center justify-center font-bold shadow">🔊</span>
-                  </>
                 ) : (
                   <Mic className="w-4 h-4" />
                 )}
@@ -1068,9 +1291,10 @@ export default function Chat() {
               disabled={!input.trim() || !isReady || isSending}
               className="p-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all mb-1 mr-1 shrink-0"
             >
-              <Send className="w-4 h-4" />
+              {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </form>
+
           <p className="text-center text-xs text-muted-foreground mt-2">
             EduAssistant · Your intelligent AI learning companion
           </p>
