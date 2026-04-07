@@ -1019,7 +1019,7 @@ export default function Chat() {
       )}
 
       {/* ── Chat Area ── */}
-      <div ref={chatAreaRef} className="flex-1 overflow-y-auto p-3 md:p-5 w-full max-w-4xl mx-auto relative">
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto p-3 md:p-5 w-full max-w-4xl mx-auto relative" style={{ overflowAnchor: "none" }}>
         {isInitializing || isLoadingMessages ? (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
             <div className="relative">

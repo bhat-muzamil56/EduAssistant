@@ -69,14 +69,17 @@ export function useChat() {
     if (isDrainingRef.current) return;
     isDrainingRef.current = true;
     const drain = () => {
-      const token = tokenQueueRef.current.shift();
-      if (token !== undefined) {
-        setStreamingContent(prev => (prev ?? "") + token);
-        rafRef.current = requestAnimationFrame(drain);
-      } else {
+      const queue = tokenQueueRef.current;
+      if (queue.length === 0) {
         isDrainingRef.current = false;
         rafRef.current = null;
+        return;
       }
+      // Drain up to 4 tokens per animation frame — smooth enough to read
+      // word-by-word but few enough layout updates to stop scrollbar jitter.
+      const batch = queue.splice(0, 4).join("");
+      setStreamingContent(prev => (prev ?? "") + batch);
+      rafRef.current = requestAnimationFrame(drain);
     };
     rafRef.current = requestAnimationFrame(drain);
   }, []);
