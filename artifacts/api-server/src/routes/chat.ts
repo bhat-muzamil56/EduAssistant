@@ -638,10 +638,11 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
         })()
       : detectLanguage(content);
 
-    // Run Gemini with a 1.5s timeout — don't block GPT on it
+    // Run Gemini with a tight 250ms timeout so GPT starts streaming almost
+    // immediately — Gemini insight is a bonus, not a blocker.
     const geminiInsight = await Promise.race([
       getGeminiPerspective(content, knowledgeContext, detectedLang),
-      new Promise<string>(resolve => setTimeout(() => resolve(""), 1500)),
+      new Promise<string>(resolve => setTimeout(() => resolve(""), 250)),
     ]);
 
     // Language enforcement — put it FIRST in the prompt so it overrides everything

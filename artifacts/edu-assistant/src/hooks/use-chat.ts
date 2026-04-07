@@ -75,9 +75,9 @@ export function useChat() {
         rafRef.current = null;
         return;
       }
-      // Drain up to 4 tokens per animation frame — smooth enough to read
-      // word-by-word but few enough layout updates to stop scrollbar jitter.
-      const batch = queue.splice(0, 4).join("");
+      // Drain up to 6 tokens per frame (~360 tokens/sec at 60fps) —
+      // fast enough to feel instant while still visibly streaming word by word.
+      const batch = queue.splice(0, 6).join("");
       setStreamingContent(prev => (prev ?? "") + batch);
       rafRef.current = requestAnimationFrame(drain);
     };
