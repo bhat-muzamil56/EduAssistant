@@ -58,6 +58,38 @@ export function useChat() {
   const { toast } = useToast();
   const sessionsLoaded = useRef(false);
 
+  // ── Smooth token queue (ChatGPT-style typewriter) ──────────────────────────
+  // Tokens from the SSE stream are pushed here; a requestAnimationFrame loop
+  // drains one token per frame so the user sees words appear one at a time.
+  const tokenQueueRef = useRef<string[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const isDrainingRef = useRef(false);
+
+  const startDraining = useCallback(() => {
+    if (isDrainingRef.current) return;
+    isDrainingRef.current = true;
+    const drain = () => {
+      const token = tokenQueueRef.current.shift();
+      if (token !== undefined) {
+        setStreamingContent(prev => (prev ?? "") + token);
+        rafRef.current = requestAnimationFrame(drain);
+      } else {
+        isDrainingRef.current = false;
+        rafRef.current = null;
+      }
+    };
+    rafRef.current = requestAnimationFrame(drain);
+  }, []);
+
+  const stopDraining = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    isDrainingRef.current = false;
+    tokenQueueRef.current = [];
+  }, []);
+
   // ── Guest: restore session from localStorage on mount ──────────────────────
   useEffect(() => {
     if (isGuest) {
@@ -246,6 +278,8 @@ export function useChat() {
       });
       setIsSending(true);
       setStreamingContent("");
+      stopDraining();
+      tokenQueueRef.current = [];
 
       try {
         const headers: Record<string, string> = {
@@ -280,8 +314,25 @@ export function useChat() {
             try {
               const event = JSON.parse(line.slice(6));
               if (event.type === "chunk") {
-                setStreamingContent(prev => (prev ?? "") + event.content);
+                // Push token into queue; the rAF drain loop will render it
+                // one token per frame, giving a smooth typewriter effect.
+                tokenQueueRef.current.push(event.content);
+                startDraining();
               } else if (event.type === "done") {
+                // Wait for any queued tokens to finish rendering before
+                // clearing the streaming bubble and showing confirmed messages.
+                const drainRemaining = () => new Promise<void>(resolve => {
+                  const check = () => {
+                    if (tokenQueueRef.current.length === 0 && !isDrainingRef.current) {
+                      resolve();
+                    } else {
+                      setTimeout(check, 16);
+                    }
+                  };
+                  check();
+                });
+                await drainRemaining();
+                stopDraining();
                 setStreamingContent(null);
                 setOptimisticMessage(null);
                 await queryClient.invalidateQueries({
@@ -296,6 +347,8 @@ export function useChat() {
           }
         }
       } catch {
+        stopDraining();
+        tokenQueueRef.current = [];
         setStreamingContent(null);
         setOptimisticMessage(null);
         toast({
@@ -308,7 +361,7 @@ export function useChat() {
         if (token) await refreshSessions();
       }
     },
-    [sessionId, token, createNewSession, queryClient, refreshSessions, toast]
+    [sessionId, token, createNewSession, queryClient, refreshSessions, toast, startDraining, stopDraining]
   );
 
   // Regenerate the last AI response (must be after sendMessage is defined)

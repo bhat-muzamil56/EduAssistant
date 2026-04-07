@@ -583,7 +583,13 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
   res.flushHeaders();
 
   const sendEvent = (data: object) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    res.write(payload);
+    // Force Node.js to flush the TCP buffer immediately so every chunk
+    // reaches the client without waiting for the write buffer to fill up.
+    const sock = (res as any).socket;
+    if (sock && typeof sock.flush === "function") sock.flush();
+    else if (typeof (res as any).flush === "function") (res as any).flush();
   };
 
   try {
