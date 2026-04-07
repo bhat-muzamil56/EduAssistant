@@ -577,19 +577,26 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
 
   // SSE headers — keep connection open for streaming
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  // Disable Nagle's algorithm so every write() is sent as its own TCP packet
+  // immediately rather than being held until the buffer fills.
+  const sock = (res as any).socket;
+  if (sock?.setNoDelay) sock.setNoDelay(true);
+
   res.flushHeaders();
+
+  // Send a 2 KB padding comment right away — this fills up any intermediate
+  // proxy buffer immediately and forces subsequent bytes to flow through
+  // without buffering (works with nginx, Replit proxy, CDNs, etc.)
+  res.write(`: ${"ok".padEnd(2048, " ")}\n\n`);
 
   const sendEvent = (data: object) => {
     const payload = `data: ${JSON.stringify(data)}\n\n`;
     res.write(payload);
-    // Force Node.js to flush the TCP buffer immediately so every chunk
-    // reaches the client without waiting for the write buffer to fill up.
-    const sock = (res as any).socket;
-    if (sock && typeof sock.flush === "function") sock.flush();
-    else if (typeof (res as any).flush === "function") (res as any).flush();
   };
 
   try {
