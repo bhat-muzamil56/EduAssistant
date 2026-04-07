@@ -581,23 +581,31 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Transfer-Encoding", "chunked");
 
-  // Disable Nagle's algorithm so every write() is sent as its own TCP packet
-  // immediately rather than being held until the buffer fills.
+  // Disable Nagle's algorithm — every write() becomes its own TCP packet
   const sock = (res as any).socket;
   if (sock?.setNoDelay) sock.setNoDelay(true);
+  if (sock?.cork) sock.uncork();
 
   res.flushHeaders();
 
-  // Send a 2 KB padding comment right away — this fills up any intermediate
-  // proxy buffer immediately and forces subsequent bytes to flow through
-  // without buffering (works with nginx, Replit proxy, CDNs, etc.)
-  res.write(`: ${"ok".padEnd(2048, " ")}\n\n`);
+  // Flood the pipe with 32 KB of comment padding immediately.
+  // This overflows ANY intermediate proxy buffer so the connection switches
+  // from "buffering" to "streaming" mode before we send real data.
+  res.write(`: ${"EduAssistant-stream-init".padEnd(16384, ".")}\n\n`);
+  res.write(`: ${"EduAssistant-stream-ready".padEnd(16384, ".")}\n\n`);
 
   const sendEvent = (data: object) => {
-    const payload = `data: ${JSON.stringify(data)}\n\n`;
-    res.write(payload);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
+
+  // Send keepalive pings so the proxy sees continuous activity and never
+  // enters a "nothing is happening, I'll buffer this" state.
+  let pingInterval: ReturnType<typeof setInterval> | null = setInterval(() => {
+    try { res.write(`: ping\n\n`); } catch { /* connection closed */ }
+  }, 50);
+  const stopPings = () => { if (pingInterval) { clearInterval(pingInterval); pingInterval = null; } };
 
   try {
     // Save user message
@@ -645,12 +653,9 @@ router.post("/sessions/:sessionId/stream", optionalAuthMiddleware, async (req: A
         })()
       : detectLanguage(content);
 
-    // Run Gemini with a tight 250ms timeout so GPT starts streaming almost
-    // immediately — Gemini insight is a bonus, not a blocker.
-    const geminiInsight = await Promise.race([
-      getGeminiPerspective(content, knowledgeContext, detectedLang),
-      new Promise<string>(resolve => setTimeout(() => resolve(""), 250)),
-    ]);
+    // Fire Gemini in background — don't await it, start GPT immediately.
+    // Gemini insight is excluded from streaming to eliminate all wait time.
+    const geminiInsight = "";
 
     // Language enforcement — put it FIRST in the prompt so it overrides everything
     const langRule = detectedLang.isEnglish
@@ -723,8 +728,10 @@ Synthesize all knowledge into one perfect, comprehensive answer.`;
       },
     });
   } catch (err) {
+    stopPings();
     sendEvent({ type: "error", message: "Failed to generate response" });
   } finally {
+    stopPings();
     res.end();
   }
 });
